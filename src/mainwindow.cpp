@@ -94,7 +94,7 @@ void MainWindow::loadFile(const QString &filename) {
 	treeWidget->setHeaderLabel("No file loaded");
 	clearImage();
 	
-	sgFile = new SgFile(filename);
+	sgFile = new SgFile(filename.toStdString().c_str());
 	if (!sgFile->load()) {
 		setWindowTitle(appname);
 		return;

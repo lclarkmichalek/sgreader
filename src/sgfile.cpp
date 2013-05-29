@@ -38,12 +38,12 @@ public:
 	uint32_t filesize_external;
 };
 
-SgFile::SgFile(const QString &filename)
+SgFile::SgFile(const char *filename)
 	: header(NULL)
 {
-	this->filename = filename;
+	this->filename = strdup(filename);
 	QFileInfo fi(filename);
-	this->basefilename = fi.baseName();
+	this->basefilename = strdup(fi.baseName().toStdString().c_str());
 }
 
 SgFile::~SgFile() {
@@ -55,6 +55,8 @@ SgFile::~SgFile() {
 		delete images[i];
 		images[i] = 0;
 	}
+	free(filename);
+	free(basefilename);
 }
 
 int SgFile::bitmapCount() const {
@@ -69,7 +71,7 @@ int SgFile::imageCount(int bitmapId) const {
 	return bitmaps[bitmapId]->imageCount();
 }
 
-QString SgFile::basename() const {
+char* SgFile::basename() const {
 	return basefilename;
 }
 
@@ -144,7 +146,7 @@ QString SgFile::errorMessage(int imageId) const {
 }
 
 bool SgFile::load() {
-	FILE *file = fopen(filename.toStdString().c_str(), "r");
+	FILE *file = fopen(filename, "r");
 
 	if (file == NULL) {
 		qDebug("unable to open file");

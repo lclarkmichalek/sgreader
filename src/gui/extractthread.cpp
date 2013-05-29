@@ -48,7 +48,7 @@ void ExtractThread::run() {
 }
 
 void ExtractThread::extractFile(const QString &filename) {
-	SgFile sg(filename);
+	SgFile sg(filename.toStdString().c_str());
 	int numImages, bitmaps, i = 0;
 	
 	qDebug() << "Extracting file" << filename;

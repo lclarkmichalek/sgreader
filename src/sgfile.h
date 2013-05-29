@@ -13,13 +13,13 @@ class SgHeader; // = header
 
 class SgFile {
 	public:
-		SgFile(const QString &filename);
+		SgFile(const char* filename);
 		~SgFile();
 		bool load();
 		int bitmapCount() const;
 		int totalImageCount() const;
 		int imageCount(int bitmapId) const;
-		QString basename() const;
+		char* basename() const;
 		
 		SgBitmap *getBitmap(int bitmapId) const;
 		QString getBitmapDescription(int bitmapId) const;
@@ -41,8 +41,8 @@ class SgFile {
 		
 		QList<SgBitmap*> bitmaps;
 		QList<SgImage*> images;
-		QString filename;
-		QString basefilename;
+		char* filename;
+		char* basefilename;
 		SgHeader *header;
 };
 
