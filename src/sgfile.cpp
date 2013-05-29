@@ -144,34 +144,30 @@ QString SgFile::errorMessage(int imageId) const {
 }
 
 bool SgFile::load() {
-	FILE *f = fopen(filename.toStdString().c_str(), "r");
-	header = new SgHeader(f);
-	fclose(f);
+	FILE *file = fopen(filename.toStdString().c_str(), "r");
 
-	QFile file(filename);
-	if (!file.open(QIODevice::ReadOnly)) {
+	if (file == NULL) {
 		qDebug("unable to open file");
 		return false;
 	}
-	
-	QDataStream stream(&file);
-	stream.setByteOrder(QDataStream::LittleEndian);
-	stream.device()->seek(SG_HEADER_SIZE);
-	
+
+	header = new SgHeader(file);
 	
 	if (!checkVersion()) {
+		fclose(file);
 		return false;
 	}
 	
 	qDebug("Read header, num bitmaps = %d, num images = %d",
 		header->num_bitmap_records, header->num_image_records);
 	
-	loadBitmaps(&stream);
+	loadBitmaps(file);
 	
-	file.seek(SG_HEADER_SIZE +
-		maxBitmapRecords() * SgBitmap::RECORD_SIZE);
+	int pos = SG_HEADER_SIZE + maxBitmapRecords() * SgBitmap::RECORD_SIZE;
+	fseek(file, pos, SEEK_SET);
 	
-	loadImages(&stream, header->version >= 0xd6);
+	loadImages(file, header->version >= 0xd6);
+	fclose(file);
 	
 	if (bitmaps.size() > 1 && images.size() == bitmaps[0]->imageCount()) {
 		qDebug("SG file has %d bitmaps but only the first is in use",
@@ -186,21 +182,21 @@ bool SgFile::load() {
 	return true;
 }
 
-void SgFile::loadBitmaps(QDataStream *stream) {
+void SgFile::loadBitmaps(FILE *file) {
 	
 	for (int i = 0; i < header->num_bitmap_records; i++) {
-		SgBitmap *bitmap = new SgBitmap(i, filename, stream);
+		SgBitmap *bitmap = new SgBitmap(i, filename, file);
 		bitmaps.append(bitmap);
 	}
 	
 }
 
-void SgFile::loadImages(QDataStream *stream, bool includeAlpha) {
+void SgFile::loadImages(FILE *file, bool includeAlpha) {
 	// The first one is a dummy/null record
-	SgImage dummy(0, stream, includeAlpha);
+	SgImage dummy(0, file, includeAlpha);
 	
 	for (int i = 0; i < header->num_image_records; i++) {
-		SgImage *image = new SgImage(i + 1, stream, includeAlpha);
+		SgImage *image = new SgImage(i + 1, file, includeAlpha);
 		qint32 invertOffset = image->invertOffset();
 		if (invertOffset < 0 && (i + invertOffset) >= 0) {
 			image->setInvertImage(images[i + invertOffset]);

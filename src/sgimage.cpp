@@ -1,4 +1,6 @@
 #include "sgimage.h"
+#include "utils.h"
+
 #include <QFile>
 #include <QDataStream>
 
@@ -13,51 +15,51 @@ enum {
 
 class SgImageRecord {
 public:
-	SgImageRecord(QDataStream *stream, bool includeAlpha) {
-		*stream >> offset;
-		*stream >> length;
-		*stream >> uncompressed_length;
-		stream->skipRawData(4);
-		*stream >> invert_offset;
-		*stream >> width;
-		*stream >> height;
-		stream->skipRawData(26);
-		*stream >> type;
-		stream->readRawData(flags, 4);
-		*stream >> bitmap_id;
-		stream->skipRawData(7);
+	SgImageRecord(FILE *f, bool includeAlpha) {
+		readUInt32le(f, &offset);
+		readUInt32le(f, &length);
+		readUInt32le(f, &uncompressed_length);
+		fseek(f, 4, SEEK_CUR);
+		readInt32le(f, &invert_offset);
+		readInt16le(f, &width);
+		readInt16le(f, &height);
+		fseek(f, 26, SEEK_CUR);
+		readUInt16le(f, &type);
+		fread(flags, 4, 1, f);
+		readUInt8le(f, &bitmap_id);
+		fseek(f, 7, SEEK_CUR);
 		
 		if (includeAlpha) {
-			*stream >> alpha_offset;
-			*stream >> alpha_length;
+			readUInt32le(f, &alpha_offset);
+			readUInt32le(f, &alpha_length);
 		} else {
 			alpha_offset = alpha_length = 0;
 		}
 	}
 	
-	quint32 offset;
-	quint32 length;
-	quint32 uncompressed_length;
+	uint32_t offset;
+	uint32_t length;
+	uint32_t uncompressed_length;
 	/* 4 zero bytes: */
-	qint32 invert_offset;
-	qint16 width;
-	qint16 height;
+	int32_t invert_offset;
+	int16_t width;
+	int16_t height;
 	/* 26 unknown bytes, mostly zero, first four are 2 shorts */
-	quint16 type;
+	uint16_t type;
 	/* 4 flag/option-like bytes: */
 	char flags[4];
-	quint8 bitmap_id;
+	uint8_t bitmap_id;
 	/* 3 bytes + 4 zero bytes */
 	/* For D6 and up SG3 versions: alpha masks */
-	quint32 alpha_offset;
-	quint32 alpha_length;
+	uint32_t alpha_offset;
+	uint32_t alpha_length;
 };
 
-SgImage::SgImage(int id, QDataStream *stream, bool includeAlpha)
+SgImage::SgImage(int id, FILE *file, bool includeAlpha)
 	: parent(NULL)
 {
 	imageId = id;
-	record = workRecord = new SgImageRecord(stream, includeAlpha);
+	record = workRecord = new SgImageRecord(file, includeAlpha);
 	if (record->invert_offset) {
 		invert = true;
 	} else {
@@ -70,7 +72,7 @@ SgImage::~SgImage() {
 	// workRecord is deleted by whoever owns it
 }
 
-qint32 SgImage::invertOffset() const {
+int32_t SgImage::invertOffset() const {
 	return record->invert_offset;
 }
 

@@ -13,7 +13,7 @@ class SgImage;
 
 class SgBitmap {
 	public:
-		SgBitmap(int id, const QString &sgFilename, QDataStream *stream);
+		SgBitmap(int id, const QString &sgFilename, FILE *file);
 		~SgBitmap();
 		int imageCount() const;
 		QString description() const;

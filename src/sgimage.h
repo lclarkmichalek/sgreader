@@ -8,7 +8,7 @@ class SgImageRecord;
 
 class SgImage {
 	public:
-		SgImage(int id, QDataStream *stream, bool includeAlpha);
+		SgImage(int id, FILE *file, bool includeAlpha);
 		~SgImage();
 		qint32 invertOffset() const;
 		int bitmapId() const;

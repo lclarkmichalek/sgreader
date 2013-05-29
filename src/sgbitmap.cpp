@@ -1,32 +1,34 @@
 #include "sgbitmap.h"
 #include "sgimage.h"
+#include "utils.h"
 
 #include <QFile>
 #include <QDataStream>
 
 class SgBitmapRecord {
 public:
-	SgBitmapRecord(QDataStream *stream) {
-		stream->readRawData(filename, 65);
+	SgBitmapRecord(FILE *f) {
+		fread(&filename, 65, 1, f);
 		filename[64] = 0;
-		stream->readRawData(comment, 51);
+		fread(&comment, 51, 1, f);
 		comment[50] = 0;
 		
-		*stream >> width;
-		*stream >> height;
-		*stream >> num_images;
-		*stream >> start_index;
-		*stream >> end_index;
-		stream->skipRawData(64);
+		readUInt32le(f, &width);
+		readUInt32le(f, &height);
+		readUInt32le(f, &num_images);
+		readUInt32le(f, &start_index);
+		readUInt32le(f, &end_index);
+		
+		fseek(f, 64, SEEK_CUR);
 	}
 	
 	char filename[65];
 	char comment[51];
-	quint32 width;
-	quint32 height;
-	quint32 num_images;
-	quint32 start_index;
-	quint32 end_index;
+	uint32_t width;
+	uint32_t height;
+	uint32_t num_images;
+	uint32_t start_index;
+	uint32_t end_index;
 	/* 4 bytes - quint32 between start & end */
 	/* 16b, 4x int with unknown purpose */
 	/*  8b, 2x int with (real?) width & height */
@@ -34,12 +36,12 @@ public:
 	/* 24 more misc bytes, most zero */
 };
 
-SgBitmap::SgBitmap(int id, const QString &sgFilename, QDataStream *stream)
+SgBitmap::SgBitmap(int id, const QString &sgFilename, FILE *file)
 	: file(NULL)
 {
 	bitmapId = id;
 	this->sgFilename = sgFilename;
-	record = new SgBitmapRecord(stream);
+	record = new SgBitmapRecord(file);
 }
 
 SgBitmap::~SgBitmap() {

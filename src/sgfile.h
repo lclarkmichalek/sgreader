@@ -1,6 +1,8 @@
 #ifndef SGFILE_H
 #define SGFILE_H
 
+#include <stdio.h>
+
 #include <QString>
 #include <QList>
 #include <QImage>
@@ -34,8 +36,8 @@ class SgFile {
 	private:
 		bool checkVersion();
 		int maxBitmapRecords() const;
-		void loadBitmaps(QDataStream *stream);
-		void loadImages(QDataStream *stream, bool includeAlpha);
+		void loadBitmaps(FILE *stream);
+		void loadImages(FILE *stream, bool includeAlpha);
 		
 		QList<SgBitmap*> bitmaps;
 		QList<SgImage*> images;
