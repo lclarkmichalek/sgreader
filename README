@@ -13,3 +13,12 @@ Use
 
 SG files refer to the data files of the City Building games, i.e. Zeus,
 Caesar 3, and such like. SGreader will extract sg3 and sg2 files.
+
+Build
+-----
+
+    qmake
+    make
+    ./sgreader
+    # or
+    sudo make install
