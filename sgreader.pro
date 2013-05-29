@@ -1,3 +1,5 @@
+VPATH += ./src
+
 TEMPLATE = app
 TARGET = 
 DEPENDPATH += . gui
@@ -5,6 +7,7 @@ INCLUDEPATH += . gui
 OBJECTS_DIR = build/obj
 MOC_DIR = build/moc
 RCC_DIR = build/rcc
+
 
 # Input
 HEADERS += aboutdialog.h \
