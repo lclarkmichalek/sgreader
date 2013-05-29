@@ -1,5 +1,6 @@
 #include "sgfile.h"
 #include "sgimage.h"
+#include "utils.h"
 
 #include <QDataStream>
 #include <QFile>
@@ -11,30 +12,30 @@ enum {
 
 class SgHeader {
 public:
-	SgHeader(QDataStream *stream) {
-		*stream >> sg_filesize;
-		*stream >> version;
-		*stream >> unknown1;
-		*stream >> max_image_records;
-		*stream >> num_image_records;
-		*stream >> num_bitmap_records;
-		*stream >> num_bitmap_records_without_system;
-		*stream >> total_filesize;
-		*stream >> filesize_555;
-		*stream >> filesize_external;
-		stream->device()->seek(SG_HEADER_SIZE);
+	SgHeader(FILE *f) {
+		readUInt32le(f, &sg_filesize);
+		readUInt32le(f, &version);
+		readUInt32le(f, &unknown1);
+		readInt32le(f, &max_image_records);
+		readInt32le(f, &num_image_records);
+		readInt32le(f, &num_bitmap_records);
+		readInt32le(f, &num_bitmap_records_without_system);
+		readUInt32le(f, &total_filesize);
+		readUInt32le(f, &filesize_555);
+		readUInt32le(f, &filesize_external);
+		fseek(f, SG_HEADER_SIZE, SEEK_SET);
 	}
 	
-	quint32 sg_filesize;
-	quint32 version;
-	quint32 unknown1;
-	qint32 max_image_records;
-	qint32 num_image_records;
-	qint32 num_bitmap_records;
-	qint32 num_bitmap_records_without_system; /* ? */
-	quint32 total_filesize;
-	quint32 filesize_555;
-	quint32 filesize_external;
+	uint32_t sg_filesize;
+	uint32_t version;
+	uint32_t unknown1;
+	int32_t max_image_records;
+	int32_t num_image_records;
+	int32_t num_bitmap_records;
+	int32_t num_bitmap_records_without_system; /* ? */
+	uint32_t total_filesize;
+	uint32_t filesize_555;
+	uint32_t filesize_external;
 };
 
 SgFile::SgFile(const QString &filename)
@@ -143,6 +144,10 @@ QString SgFile::errorMessage(int imageId) const {
 }
 
 bool SgFile::load() {
+	FILE *f = fopen(filename.toStdString().c_str(), "r");
+	header = new SgHeader(f);
+	fclose(f);
+
 	QFile file(filename);
 	if (!file.open(QIODevice::ReadOnly)) {
 		qDebug("unable to open file");
@@ -151,8 +156,8 @@ bool SgFile::load() {
 	
 	QDataStream stream(&file);
 	stream.setByteOrder(QDataStream::LittleEndian);
+	stream.device()->seek(SG_HEADER_SIZE);
 	
-	header = new SgHeader(&stream);
 	
 	if (!checkVersion()) {
 		return false;

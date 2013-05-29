@@ -17,6 +17,7 @@ HEADERS += aboutdialog.h \
            sgbitmap.h \
            sgfile.h \
            sgimage.h \
+           utils.h \
            gui/filelistpage.h \
            gui/inputdirpage.h \
            gui/outputdirpage.h \
@@ -31,6 +32,7 @@ SOURCES += aboutdialog.cpp \
            sgbitmap.cpp \
            sgfile.cpp \
            sgimage.cpp \
+           utils.cpp \
            gui/filelistpage.cpp \
            gui/inputdirpage.cpp \
            gui/outputdirpage.cpp \
