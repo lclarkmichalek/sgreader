@@ -22,3 +22,6 @@ Build
     ./sgreader
     # or
     sudo make install
+
+If you want to build the original SGReader without any modifications, checkout
+the git tag "pecunia".
