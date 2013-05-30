@@ -39,8 +39,10 @@ class SgFile {
 		void loadBitmaps(FILE *stream);
 		void loadImages(FILE *stream, bool includeAlpha);
 		
-		QList<SgBitmap*> bitmaps;
-		QList<SgImage*> images;
+		SgBitmap **bitmaps;
+		int bitmaps_n;
+		SgImage **images;
+		int images_n;
 		char* filename;
 		char* basefilename;
 		SgHeader *header;

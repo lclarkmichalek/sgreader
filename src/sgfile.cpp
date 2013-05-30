@@ -39,7 +39,9 @@ public:
 };
 
 SgFile::SgFile(const char *filename)
-	: header(NULL)
+	: bitmaps(NULL), bitmaps_n(0),
+	  images(NULL), images_n(0),
+	  header(NULL)
 {
 	this->filename = strdup(filename);
 	QFileInfo fi(filename);
@@ -47,24 +49,26 @@ SgFile::SgFile(const char *filename)
 }
 
 SgFile::~SgFile() {
-	for (int i = 0; i < bitmaps.size(); i++) {
+	for (int i = 0; i < bitmaps_n; i++) {
 		delete bitmaps[i];
 		bitmaps[i] = 0;
 	}
-	for (int i = 0; i < images.size(); i++) {
+	free(bitmaps);
+	for (int i = 0; i < images_n; i++) {
 		delete images[i];
 		images[i] = 0;
 	}
+	free(images);
 	free(filename);
 	free(basefilename);
 }
 
 int SgFile::bitmapCount() const {
-	return bitmaps.size();
+	return bitmaps_n;
 }
 
 int SgFile::imageCount(int bitmapId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size()) {
+	if (bitmapId < 0 || bitmapId >= bitmaps_n) {
 		return -1;
 	}
 	
@@ -76,18 +80,18 @@ char* SgFile::basename() const {
 }
 
 int SgFile::totalImageCount() const {
-	return images.size();
+	return images_n;
 }
 
 SgImage *SgFile::image(int imageId) const {
-	if (imageId < 0 || imageId >= images.size()) {
+	if (imageId < 0 || imageId >= images_n) {
 		return NULL;
 	}
 	return images[imageId];
 }
 
 SgImage *SgFile::image(int bitmapId, int imageId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size() ||
+	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
 		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
 		return NULL;
 	}
@@ -96,7 +100,7 @@ SgImage *SgFile::image(int bitmapId, int imageId) const {
 }
 
 QImage SgFile::getImage(int imageId) {
-	if (imageId < 0 || imageId >= images.size()) {
+	if (imageId < 0 || imageId >= images_n) {
 		qDebug("Id out of range");
 		return QImage();
 	}
@@ -104,7 +108,7 @@ QImage SgFile::getImage(int imageId) {
 }
 
 QImage SgFile::getImage(int bitmapId, int imageId) {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size() ||
+	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
 		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
 		qDebug("Id out of range");
 		return QImage();
@@ -114,7 +118,7 @@ QImage SgFile::getImage(int bitmapId, int imageId) {
 }
 
 SgBitmap *SgFile::getBitmap(int bitmapId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size()) {
+	if (bitmapId < 0 || bitmapId >= bitmaps_n) {
 		return NULL;
 	}
 	
@@ -122,7 +126,7 @@ SgBitmap *SgFile::getBitmap(int bitmapId) const {
 }
 
 QString SgFile::getBitmapDescription(int bitmapId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size()) {
+	if (bitmapId < 0 || bitmapId >= bitmaps_n) {
 		return QString();
 	}
 	
@@ -130,7 +134,7 @@ QString SgFile::getBitmapDescription(int bitmapId) const {
 }
 
 QString SgFile::errorMessage(int bitmapId, int imageId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps.size() ||
+	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
 		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
 		return QString();
 	}
@@ -139,7 +143,7 @@ QString SgFile::errorMessage(int bitmapId, int imageId) const {
 }
 
 QString SgFile::errorMessage(int imageId) const {
-	if (imageId < 0 || imageId >= images.size()) {
+	if (imageId < 0 || imageId >= images_n) {
 		return QString();
 	}
 	return images[imageId]->errorMessage();
@@ -171,29 +175,43 @@ bool SgFile::load() {
 	loadImages(file, header->version >= 0xd6);
 	fclose(file);
 	
-	if (bitmaps.size() > 1 && images.size() == bitmaps[0]->imageCount()) {
+	if (bitmaps_n > 1 && images_n == bitmaps[0]->imageCount()) {
 		qDebug("SG file has %d bitmaps but only the first is in use",
-			bitmaps.size());
+			bitmaps_n);
 		// Remove the bitmaps other than the first
-		for (int i = bitmaps.size() - 1; i > 0; i--) {
-			SgBitmap *bmp = bitmaps.takeLast();
+		for (int i = bitmaps_n - 1; i > 0; i--) {
+			SgBitmap *bmp = bitmaps[i];
 			delete bmp;
 		}
+		bitmaps_n = 1;
 	}
 	
 	return true;
 }
 
 void SgFile::loadBitmaps(FILE *file) {
-	
+	if (bitmaps != NULL) {
+		free(bitmaps);
+		bitmaps_n = 0;
+	}
+	bitmaps_n = header->num_bitmap_records;
+	bitmaps = (SgBitmap**)(malloc(sizeof(SgBitmap*) * bitmaps_n));
+
 	for (int i = 0; i < header->num_bitmap_records; i++) {
 		SgBitmap *bitmap = new SgBitmap(i, filename, file);
-		bitmaps.append(bitmap);
+		bitmaps[i] = bitmap;
 	}
 	
 }
 
 void SgFile::loadImages(FILE *file, bool includeAlpha) {
+	if (images != NULL) {
+		free(images);
+		images_n = 0;
+	}
+	images_n = header->num_image_records;
+	images = (SgImage**)(malloc(sizeof(SgImage*) * images_n));
+
 	// The first one is a dummy/null record
 	SgImage dummy(0, file, includeAlpha);
 	
@@ -204,13 +222,14 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 			image->setInvertImage(images[i + invertOffset]);
 		}
 		int bitmapId = image->bitmapId();
-		if (bitmapId >= 0 && bitmapId < bitmaps.size()) {
+		if (bitmapId >= 0 && bitmapId < bitmaps_n) {
 			bitmaps[bitmapId]->addImage(image);
 			image->setParent(bitmaps[bitmapId]);
 		} else {
 			qDebug("Image %d has no parent: %d", i, bitmapId);
 		}
-		images.append(image);
+		
+		images[i] = image;
 	}
 }
 
