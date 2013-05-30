@@ -92,54 +92,12 @@ SgImage *SgFile::image(int bitmapId, int imageId) const {
 	return bitmaps[bitmapId]->image(imageId);
 }
 
-QImage SgFile::getImage(int imageId) {
-	if (imageId < 0 || imageId >= images_n) {
-		qDebug("Id out of range");
-		return QImage();
-	}
-	return images[imageId]->getImage();
-}
-
-QImage SgFile::getImage(int bitmapId, int imageId) {
-	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
-		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
-		qDebug("Id out of range");
-		return QImage();
-	}
-	
-	return bitmaps[bitmapId]->getImage(imageId);
-}
-
 SgBitmap *SgFile::getBitmap(int bitmapId) const {
 	if (bitmapId < 0 || bitmapId >= bitmaps_n) {
 		return NULL;
 	}
 	
 	return bitmaps[bitmapId];
-}
-
-QString SgFile::getBitmapDescription(int bitmapId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps_n) {
-		return QString();
-	}
-	
-	return bitmaps[bitmapId]->description();
-}
-
-QString SgFile::errorMessage(int bitmapId, int imageId) const {
-	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
-		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
-		return QString();
-	}
-	
-	return bitmaps[bitmapId]->errorMessage(imageId);
-}
-
-QString SgFile::errorMessage(int imageId) const {
-	if (imageId < 0 || imageId >= images_n) {
-		return QString();
-	}
-	return images[imageId]->errorMessage();
 }
 
 bool SgFile::load() {

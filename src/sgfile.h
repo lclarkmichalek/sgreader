@@ -18,19 +18,11 @@ class SgFile {
 		int bitmapCount() const;
 		int totalImageCount() const;
 		int imageCount(int bitmapId) const;
-		//char* basename() const;
 		
 		SgBitmap *getBitmap(int bitmapId) const;
-		QString getBitmapDescription(int bitmapId) const;
 		
 		SgImage *image(int bitmapId, int imageId) const;
 		SgImage *image(int globalImageId) const;
-		
-		QImage getImage(int bitmapId, int imageId);
-		QImage getImage(int globalImageId);
-		
-		QString errorMessage(int bitmapId, int imageId) const;
-		QString errorMessage(int globalImageId) const;
 		
 	private:
 		bool checkVersion();

@@ -119,9 +119,10 @@ void MainWindow::loadFile(const QString &filename) {
 		// Split up by file
 		int numBitmaps = sgFile->bitmapCount();
 		for (int b = 0; b < numBitmaps; b++) {
+			QString description = sgFile->getBitmap(b)->description();
 			QTreeWidgetItem *bitmapItem =
 				new QTreeWidgetItem(treeWidget,
-					QStringList(sgFile->getBitmapDescription(b)));
+						    QStringList(description));
 			
 			int numImages = sgFile->imageCount(b);
 			for (int i = 0; i < numImages; i++) {
