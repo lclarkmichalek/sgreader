@@ -2,7 +2,7 @@
 
 #include "../sgfile.h"
 #include "../sgbitmap.h"
-#include "../sgfile.h"
+#include "../sgimage.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -82,7 +82,7 @@ void ExtractThread::extractFile(const QString &filename) {
 		for (int n = 0; n < images; n++) {
 			emit progressChanged(++total);
 			
-			QImage img = bitmap->getImage(n);
+			QImage img = bitmap->image(n)->getImage();
 			if (!img.isNull()) {
 				QString pngfile = QString("%0_%1.png")
 					.arg(bmpName)
@@ -96,13 +96,13 @@ void ExtractThread::extractFile(const QString &filename) {
 					error = QString("File '%0', image %1: %2")
 						.arg(basename)
 						.arg(n + 1)
-						.arg(bitmap->errorMessage(n));
+						.arg(bitmap->image(n)->errorMessage());
 				} else {
 					error = QString("File '%0', section '%1', image %2: %3")
 						.arg(basename)
 						.arg(bitmap->bitmapName())
 						.arg(n + 1)
-						.arg(bitmap->errorMessage(n));
+						.arg(bitmap->image(n)->errorMessage());
 				}
 				errorMessages.append(error);
 				errorImages++;

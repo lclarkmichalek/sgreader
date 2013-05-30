@@ -2,8 +2,9 @@
 #include "sgimage.h"
 #include "utils.h"
 
+#include <strings.h>
+
 #include <QFile>
-#include <QDataStream>
 
 class SgBitmapRecord {
 public:
@@ -36,11 +37,12 @@ public:
 	/* 24 more misc bytes, most zero */
 };
 
-SgBitmap::SgBitmap(int id, const QString &sgFilename, FILE *file)
-	: file(NULL)
+SgBitmap::SgBitmap(int id, const char *sgFilename, FILE *file)
+	: images(NULL), images_n(0), images_c(0),
+	  file(NULL)
 {
 	bitmapId = id;
-	this->sgFilename = sgFilename;
+	this->sgFilename = strdup(sgFilename);
 	record = new SgBitmapRecord(file);
 }
 
@@ -48,16 +50,19 @@ SgBitmap::~SgBitmap() {
 	if (file) {
 		delete file;
 	}
+	free(sgFilename);
+	if (images != NULL)
+		free(images);
 }
 
 int SgBitmap::imageCount() const {
-	return images.size();
+	return images_n;
 }
 
 QString SgBitmap::description() const {
 	return QString("%0 (%1)")
 		.arg(record->filename)
-		.arg(images.size());
+		.arg(images_n);
 }
 
 QString SgBitmap::bitmapName() const {
@@ -65,32 +70,26 @@ QString SgBitmap::bitmapName() const {
 }
 
 void SgBitmap::addImage(SgImage *child) {
-	images.append(child);
+	if (images_n >= images_c) {
+		int new_cap = images_c * 2 | 4;
+		SgImage **new_arr = (SgImage**)(malloc(new_cap * sizeof(SgImage*)));
+		int i;
+		for (i = 0; i < images_c; i++) {
+			new_arr[i] = images[i];
+		}
+		free(images);
+		images = new_arr;
+		images_c = new_cap;
+	}
+	images[images_n++] = child;
 }
 
 SgImage *SgBitmap::image(int id) {
-	if (id < 0 || id >= images.size()) {
+	if (id < 0 || id >= images_n) {
 		return NULL;
 	}
 	
 	return images[id];
-}
-
-QImage SgBitmap::getImage(int id) {
-	if (id < 0 || id >= images.size()) {
-		qDebug("Id out of range");
-		return QImage();
-	}
-	
-	return images[id]->getImage();
-}
-
-QString SgBitmap::errorMessage(int id) const {
-	if (id < 0 || id >= images.size()) {
-		return QString();
-	}
-	
-	return images[id]->errorMessage();
 }
 
 QFile *SgBitmap::openFile(char isExtern) {

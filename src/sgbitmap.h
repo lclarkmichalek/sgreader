@@ -13,16 +13,14 @@ class SgImage;
 
 class SgBitmap {
 	public:
-		SgBitmap(int id, const QString &sgFilename, FILE *file);
+		SgBitmap(int id, const char *sgFilename, FILE *file);
 		~SgBitmap();
 		int imageCount() const;
 		QString description() const;
 		QString bitmapName() const;
-		QImage getImage(int id);
 		SgImage *image(int id);
 		void addImage(SgImage *child);
 		QFile *openFile(char isExtern);
-		QString errorMessage(int id) const;
 		
 		enum {
 			RECORD_SIZE = 200
@@ -31,10 +29,12 @@ class SgBitmap {
 		QString find555File();
 		QString findFilenameCaseInsensitive(QDir directory, QString filename);
 		
-		QList<SgImage*> images;
+		SgImage **images;
+		int images_n;
+		int images_c;
 		SgBitmapRecord *record;
 		QFile *file;
-		QString sgFilename;
+		char *sgFilename;
 		int bitmapId;
 		char isExtern;
 };
