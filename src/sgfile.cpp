@@ -2,10 +2,6 @@
 #include "sgimage.h"
 #include "utils.h"
 
-#include <QDataStream>
-#include <QFile>
-#include <QFileInfo>
-
 enum {
 	SG_HEADER_SIZE = 680
 };
@@ -44,6 +40,7 @@ SgFile::SgFile(const char *filename)
 	  header(NULL)
 {
 	this->filename = strdup(filename);
+	
 	QFileInfo fi(filename);
 	this->basefilename = strdup(fi.baseName().toStdString().c_str());
 }
@@ -73,10 +70,6 @@ int SgFile::imageCount(int bitmapId) const {
 	}
 	
 	return bitmaps[bitmapId]->imageCount();
-}
-
-char* SgFile::basename() const {
-	return basefilename;
 }
 
 int SgFile::totalImageCount() const {
@@ -242,8 +235,11 @@ bool SgFile::checkVersion() {
 		}
 	} else if (header->version == 0xd5 || header->version == 0xd6) {
 		// SG3 file: filesize = the actual size of the sg3 file
-		QFileInfo fi(filename);
-		if (header->sg_filesize == 74480 || fi.size() == header->sg_filesize) {
+		FILE *fp = fopen(filename, "r");
+		fseek(fp, 0, SEEK_END);
+		uint32_t filesize = uint32_t(ftell(fp));
+
+		if (header->sg_filesize == 74480 || filesize == header->sg_filesize) {
 			return true;
 		}
 	}

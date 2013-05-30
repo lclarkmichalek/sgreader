@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 #include <QString>
-#include <QList>
 #include <QImage>
 
 class SgBitmap;
@@ -19,7 +18,7 @@ class SgFile {
 		int bitmapCount() const;
 		int totalImageCount() const;
 		int imageCount(int bitmapId) const;
-		char* basename() const;
+		//char* basename() const;
 		
 		SgBitmap *getBitmap(int bitmapId) const;
 		QString getBitmapDescription(int bitmapId) const;

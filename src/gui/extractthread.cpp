@@ -5,6 +5,7 @@
 #include "../sgfile.h"
 
 #include <QDebug>
+#include <QFileInfo>
 
 ExtractThread::ExtractThread(const QStringList &files, const QString &outputDir,
 	bool extractSystem)
@@ -54,7 +55,8 @@ void ExtractThread::extractFile(const QString &filename) {
 	qDebug() << "Extracting file" << filename;
 	
 	sg.load();
-	QString basename = sg.basename();
+	QFileInfo fi(filename);
+	QString basename = fi.baseName();
 	outputDir.mkdir(basename);
 	outputDir.cd(basename);
 	
