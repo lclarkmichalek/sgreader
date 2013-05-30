@@ -3,9 +3,6 @@
 
 #include <stdio.h>
 
-#include <QString>
-#include <QImage>
-
 class SgBitmap;
 class SgImage;
 class SgHeader; // = header
