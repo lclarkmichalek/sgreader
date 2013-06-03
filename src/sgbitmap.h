@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 class SgBitmapRecord;
-class SgImage;
+struct SgImage;
 
 class SgBitmap {
 	public:
@@ -22,13 +22,13 @@ class SgBitmap {
 		enum {
 			RECORD_SIZE = 200
 		};
+		int bitmapId;
 	private:
-		SgImage **images;
+		struct SgImage **images;
 		int images_n;
 		int images_c;
 		SgBitmapRecord *record;
 		char *sgFilename;
-		int bitmapId;
 };
 
 #endif /* SGBITMAP_H */

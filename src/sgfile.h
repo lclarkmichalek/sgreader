@@ -3,8 +3,9 @@
 
 #include <stdio.h>
 
+#include "./sgimage.h"
+
 class SgBitmap;
-class SgImage;
 class SgHeader; // = header
 
 class SgFile {

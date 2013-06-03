@@ -135,20 +135,20 @@ void MainWindow::loadFile(const QString &filename) {
 }
 
 void MainWindow::loadImage(SgImage *img) {
-	QString filename = find555Filename(img->getParent());
+	QString filename = find555Filename(img->parent);
 
 	if (imageData != NULL) {
 		// Just say NO to memory leaks
 		delete_sg_image_data(imageData);
 	}
 
-	imageData = img->getImageData(filename.toStdString().c_str());
+	imageData = get_sg_image_data(img, filename.toStdString().c_str());
 	image = QImage((uchar*)(imageData->data),
 		       imageData->width, imageData->height,
 		       QImage::Format_ARGB32);
 	if (image.isNull()) {
 		imageLabel->setText(QString("Couldn't load image: %0")
-			.arg(img->errorMessage()));
+			.arg(img->error));
 		saveAction->setEnabled(false);
 	} else {
 		imageLabel->setPixmap(QPixmap::fromImage(image));

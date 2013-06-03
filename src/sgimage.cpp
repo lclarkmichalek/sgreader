@@ -2,9 +2,9 @@
 #include "utils.h"
 
 #include <math.h>
-
-#include <QFile>
-#include <QDataStream>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 enum {
 	ISOMETRIC_TILE_WIDTH = 58,
@@ -14,6 +14,33 @@ enum {
 	ISOMETRIC_LARGE_TILE_HEIGHT = 40,
 	ISOMETRIC_LARGE_TILE_BYTES = 3200
 };
+
+
+/* IO */
+uint8_t *fillBuffer(struct SgImage *img, FILE *file);
+
+/* Image loaders */
+void loadPlainImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer);
+void loadIsometricImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer);
+void loadSpriteImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer);
+void loadAlphaMask(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer);
+		
+/* Image decoding methods */
+void writeIsometricBase(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer);
+void writeIsometricTile(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer,
+			int offset_x, int offset_y, int tile_width, int tile_height);
+void writeTransparentImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer, int length);
+		
+/* Pixel setting */
+void set555Pixel(struct SgImage *img, uint32_t *pixels, int x, int y, uint16_t color);
+void setAlphaPixel(struct SgImage *img, uint32_t *pixels, int x, int y, uint8_t color);
+		
+/* Error handling */
+void setError(struct SgImage *img, const char *msg);
+
+/* Misc */
+void mirrorResult(struct SgImage *img, uint32_t *pixels);
+
 
 void delete_sg_image_data(struct SgImageData *data) {
 	if (data->data != NULL)
@@ -46,66 +73,47 @@ struct SgImageRecord read_sg_image_record(FILE *f, bool includeAlpha) {
 	return rec;
 }
 
-SgImage::SgImage(int id, FILE *file, bool includeAlpha)
-{
-	parent = NULL;
-	error = NULL;
+struct SgImage *read_sg_image(int id, FILE *file, bool includeAlpha) {
+	struct SgImage *img = (struct SgImage*)malloc(sizeof(struct SgImage));
+	img->parent = NULL;
+	img->error = NULL;
 
-	imageId = id;
-	record = workRecord = (struct SgImageRecord*)malloc(sizeof(struct SgImageRecord));
-	*record = read_sg_image_record(file, includeAlpha);
-	if (record->invert_offset) {
-		invert = true;
+	img->imageId = id;
+	img->record = img->workRecord = (struct SgImageRecord*)malloc(sizeof(struct SgImageRecord));
+	*img->record = read_sg_image_record(file, includeAlpha);
+	if (img->record->invert_offset) {
+		img->invert = true;
 	} else {
-		invert = false;
+		img->invert = false;
 	}
+	return img;
 }
 
-SgImage::~SgImage() {
-	if (error != NULL)
-		free(error);
-	if (record)
-		free(record);
+void delete_sg_image(struct SgImage *img) {
+	if (img->error != NULL)
+		free(img->error);
+	if (img->record)
+		free(img->record);
 	// workRecord is deleted by whoever owns it
+	free(img);
 }
 
-int32_t SgImage::invertOffset() const {
-	return record->invert_offset;
+void set_sg_image_invert(struct SgImage *img, struct SgImage *invert) {
+	img->workRecord = invert->record;
 }
 
-int SgImage::bitmapId() const {
-	if (workRecord) return workRecord->bitmap_id;
-	return record->bitmap_id;
-}
-
-void SgImage::setInvertImage(SgImage *invert) {
-	this->workRecord = invert->record;
-}
-
-void SgImage::setParent(SgBitmap *parent) {
-	this->parent = parent;
-}
-
-SgBitmap* SgImage::getParent() const {
-	return this->parent;
-}
-
-char *SgImage::errorMessage() const {
-	return error;
-}
-
-void SgImage::setError(const char *message) {
+void setError(struct SgImage *img, const char *message) {
 	printf("SGErr: %s\n", message);
-	if (error != NULL)
-		free(error);
-	error = strdup(message);
+	if (img->error != NULL)
+		free(img->error);
+	img->error = strdup(message);
 }
 
-bool SgImage::isExtern() const {
-	return bool(workRecord->flags[0]);
+bool is_sg_image_extern(struct SgImage *img) {
+	return bool(img->workRecord->flags[0]);
 }
 
-struct SgImageData *SgImage::getImageData(const char *filename555) {
+struct SgImageData *get_sg_image_data(struct SgImage *img, const char *filename555) {
 	// START DEBUG ((
 	/*
 	if ((imageId >= 359 && imageId <= 368) || imageId == 459) {
@@ -118,74 +126,75 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 	*/
 	// END DEBUG ))
 	// Trivial checks
-	if (!parent) {
-		setError("Image has no bitmap parent");
+	if (!img->parent) {
+		setError(img, "Image has no bitmap parent");
 		return NULL;
 	}
-	if (workRecord->width <= 0 || workRecord->height <= 0) {
-		setError("Width or height invalid");
+	if (img->workRecord->width <= 0 || img->workRecord->height <= 0) {
+		setError(img, "Width or height invalid");
 		return NULL;
-	} else if (workRecord->length <= 0) {
-		setError("No image data available");
+	} else if (img->workRecord->length <= 0) {
+		setError(img, "No image data available");
 		return NULL;
 	}
 	
         FILE *file555 = fopen(filename555, "rb");
         if (file555 == NULL) {
-		setError("Unable to open 555 file");
+		setError(img, "Unable to open 555 file");
 		return NULL;
         }
 
-	uint8_t *buffer = fillBuffer(file555);
+	uint8_t *buffer = fillBuffer(img, file555);
 	fclose(file555);
 	if (buffer == NULL) {
 		// Don't set error, as error already set in fillBuffer()
 		return NULL;
 	}
 
-	uint32_t *pixels = (uint32_t*)(malloc(workRecord->width * workRecord->height * sizeof(uint32_t)));
+	uint32_t *pixels = (uint32_t*)(malloc(img->workRecord->width * img->workRecord->height *
+					      sizeof(uint32_t)));
 	int i;
-	for (i = 0; i < workRecord->width * workRecord->height; i++)
+	for (i = 0; i < img->workRecord->width * img->workRecord->height; i++)
 		pixels[i] = 0;
 
-	switch (workRecord->type) {
+	switch (img->workRecord->type) {
 		case 0:
 		case 1:
 		case 10:
 		case 12:
 		case 13:
-			loadPlainImage(pixels, buffer);
+			loadPlainImage(img, pixels, buffer);
 			break;
 		
 		case 30:
-			loadIsometricImage(pixels, buffer);
+			loadIsometricImage(img, pixels, buffer);
 			break;
 		
 		case 256:
 		case 257:
 		case 276:
-			loadSpriteImage(pixels, buffer);
+			loadSpriteImage(img, pixels, buffer);
 			break;
 		
 		default:
-			setError("Unknown image type");
+			setError(img, "Unknown image type");
 			return NULL;
 	}
 	
-	if (workRecord->alpha_length) {
-		uint8_t *alpha_buffer = &(buffer[workRecord->length]);
-		loadAlphaMask(pixels, alpha_buffer);
+	if (img->workRecord->alpha_length) {
+		uint8_t *alpha_buffer = &(buffer[img->workRecord->length]);
+		loadAlphaMask(img, pixels, alpha_buffer);
 	}
 	
 	free(buffer);
 	
-	if (invert) {
-		mirrorResult(pixels);
+	if (img->invert) {
+		mirrorResult(img, pixels);
 	}
 
 	struct SgImageData *result = (struct SgImageData*)malloc(sizeof(struct SgImageData));
-	result->width = workRecord->width;
-	result->height = workRecord->height;
+	result->width = img->workRecord->width;
+	result->height = img->workRecord->height;
 	result->rMask = 0xff;
 	result->bMask = 0xff00;
 	result->gMask = 0xff0000;
@@ -194,15 +203,15 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 	return result;
 }
 
-uint8_t* SgImage::fillBuffer(FILE *file) {
-	int data_length = workRecord->length + workRecord->alpha_length;
+uint8_t* fillBuffer(struct SgImage *img, FILE *file) {
+	int data_length = img->workRecord->length + img->workRecord->alpha_length;
 	if (data_length <= 0) {
-		setError("Data length < 0");
+		setError(img, "Data length < 0");
 	}
 	uint8_t *buffer = (uint8_t*)(malloc(data_length * sizeof(uint8_t)));
 	
 	// Somehow externals have 1 byte added to their offset
-	fseek(file, workRecord->offset - workRecord->flags[0], SEEK_SET);
+	fseek(file, img->workRecord->offset - img->workRecord->flags[0], SEEK_SET);
 	
 	int data_read = (int)fread(buffer, 1, data_length, file);
 	if (data_length != data_read) {
@@ -211,7 +220,7 @@ uint8_t* SgImage::fillBuffer(FILE *file) {
 			buffer[data_read] = buffer[data_read+1] = 0;
 			buffer[data_read+2] = buffer[data_read+3] = 0;
 		} else {
-			setError("Unable to read from file");
+			setError(img, "Unable to read from file");
 			free(buffer);
 			return NULL;
 		}
@@ -219,40 +228,40 @@ uint8_t* SgImage::fillBuffer(FILE *file) {
 	return buffer;
 }
 
-void SgImage::loadPlainImage(uint32_t *pixels, const uint8_t *buffer) {
+void loadPlainImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer) {
 	// Check whether the image data is OK
-	if (workRecord->height * workRecord->width * 2 != (int)workRecord->length) {
-		setError("Image data length doesn't match image size");
+	if (img->workRecord->height * img->workRecord->width * 2 != (int)img->workRecord->length) {
+		setError(img, "Image data length doesn't match image size");
 		return;
 	}
 	
 	int i = 0;
-	for (int y = 0; y < (int)workRecord->height; y++) {
-		for (int x = 0; x < (int)workRecord->width; x++, i+= 2) {
-			set555Pixel(pixels, x, y, buffer[i] | (buffer[i+1] << 8));
+	for (int y = 0; y < (int)img->workRecord->height; y++) {
+		for (int x = 0; x < (int)img->workRecord->width; x++, i+= 2) {
+			set555Pixel(img, pixels, x, y, buffer[i] | (buffer[i+1] << 8));
 		}
 	}
 }
 
-void SgImage::loadIsometricImage(uint32_t *pixels, const uint8_t *buffer) {
+void loadIsometricImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer) {
 	
-	writeIsometricBase(pixels, buffer);
-	writeTransparentImage(pixels, &buffer[workRecord->uncompressed_length],
-		workRecord->length - workRecord->uncompressed_length);
+	writeIsometricBase(img, pixels, buffer);
+	writeTransparentImage(img, pixels, &buffer[img->workRecord->uncompressed_length],
+			      img->workRecord->length - img->workRecord->uncompressed_length);
 }
 
-void SgImage::loadSpriteImage(uint32_t *pixels, const uint8_t *buffer) {
-	writeTransparentImage(pixels, buffer, workRecord->length);
+void loadSpriteImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer) {
+	writeTransparentImage(img, pixels, buffer, img->workRecord->length);
 }
 
-void SgImage::loadAlphaMask(uint32_t *pixels, const uint8_t *buffer) {
+void loadAlphaMask(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer) {
 	int i = 0;
 	int x = 0, y = 0, j;
-	int width = workRecord->width;
-	int length = workRecord->alpha_length;
+	int width = img->workRecord->width;
+	int length = img->workRecord->alpha_length;
 	
 	while (i < length) {
-		quint8 c = buffer[i++];
+		uint8_t c = buffer[i++];
 		if (c == 255) {
 			/* The next byte is the number of pixels to skip */
 			x += buffer[i++];
@@ -262,7 +271,7 @@ void SgImage::loadAlphaMask(uint32_t *pixels, const uint8_t *buffer) {
 		} else {
 			/* `c' is the number of image data bytes */
 			for (j = 0; j < c; j++, i++) {
-				setAlphaPixel(pixels, x, y, buffer[i]);
+				setAlphaPixel(img, pixels, x, y, buffer[i]);
 				x++;
 				if (x >= width) {
 					y++; x = 0;
@@ -272,16 +281,16 @@ void SgImage::loadAlphaMask(uint32_t *pixels, const uint8_t *buffer) {
 	}
 }
 
-void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
+void writeIsometricBase(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer) {
 	int i = 0, x, y;
 	int width, height, height_offset;
-	int size = workRecord->flags[3];
+	int size = img->workRecord->flags[3];
 	int x_offset, y_offset;
 	int tile_bytes, tile_height, tile_width;
 	
-	width = workRecord->width;
+	width = img->workRecord->width;
 	height = (width + 2) / 2; /* 58 -> 30, 118 -> 60, etc */
-	height_offset = workRecord->height - height;
+	height_offset = img->workRecord->height - height;
 	y_offset = height_offset;
 	
 	if (size == 0) {
@@ -307,13 +316,13 @@ void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
 		tile_height = ISOMETRIC_LARGE_TILE_HEIGHT;
 		tile_width  = ISOMETRIC_LARGE_TILE_WIDTH;
 	} else {
-		setError("Unknown tile size");
+		setError(img, "Unknown tile size");
 		return;
 	}
 	
 	/* Check if buffer length is enough: (width + 2) * height / 2 * 2bpp */
-	if ((width + 2) * height != (int)workRecord->uncompressed_length) {
-		setError("Data length doesn't match footprint size");
+	if ((width + 2) * height != (int)img->workRecord->uncompressed_length) {
+		setError(img, "Data length doesn't match footprint size");
 		return;
 	}
 	
@@ -321,8 +330,8 @@ void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
 	for (y = 0; y < (size + (size - 1)); y++) {
 		x_offset = (y < size ? (size - y - 1) : (y - size + 1)) * tile_height;
 		for (x = 0; x < (y < size ? y + 1 : 2 * size - y - 1); x++, i++) {
-			writeIsometricTile(pixels, &buffer[i * tile_bytes],
-				x_offset, y_offset, tile_width, tile_height);
+			writeIsometricTile(img, pixels, &buffer[i * tile_bytes],
+					   x_offset, y_offset, tile_width, tile_height);
 			x_offset += tile_width + 2;
 		}
 		y_offset += tile_height / 2;
@@ -330,8 +339,8 @@ void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
 	
 }
 
-void SgImage::writeIsometricTile(uint32_t *pixels, const uint8_t *buffer,
-		int offset_x, int offset_y, int tile_width, int tile_height) {
+void writeIsometricTile(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer,
+			int offset_x, int offset_y, int tile_width, int tile_height) {
 	int half_height = tile_height / 2;
 	int x, y, i = 0;
 	
@@ -339,27 +348,27 @@ void SgImage::writeIsometricTile(uint32_t *pixels, const uint8_t *buffer,
 		int start = tile_height - 2 * (y + 1);
 		int end = tile_width - start;
 		for (x = start; x < end; x++, i += 2) {
-			set555Pixel(pixels, offset_x + x, offset_y + y,
-				(buffer[i+1] << 8) | buffer[i]);
+			set555Pixel(img, pixels, offset_x + x, offset_y + y,
+				    (buffer[i+1] << 8) | buffer[i]);
 		}
 	}
 	for (y = half_height; y < tile_height; y++) {
 		int start = 2 * y - tile_height;
 		int end = tile_width - start;
 		for (x = start; x < end; x++, i += 2) {
-			set555Pixel(pixels, offset_x + x, offset_y + y,
+			set555Pixel(img, pixels, offset_x + x, offset_y + y,
 				(buffer[i+1] << 8) | buffer[i]);
 		}
 	}
 }
 
-void SgImage::writeTransparentImage(uint32_t *pixels, const uint8_t *buffer, int length) {
+void writeTransparentImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer, int length) {
 	int i = 0;
 	int x = 0, y = 0, j;
-	int width = workRecord->width;
+	int width = img->workRecord->width;
 	
 	while (i < length) {
-		quint8 c = buffer[i++];
+		uint8_t c = buffer[i++];
 		if (c == 255) {
 			/* The next byte is the number of pixels to skip */
 			x += buffer[i++];
@@ -369,7 +378,7 @@ void SgImage::writeTransparentImage(uint32_t *pixels, const uint8_t *buffer, int
 		} else {
 			/* `c' is the number of image data bytes */
 			for (j = 0; j < c; j++, i += 2) {
-				set555Pixel(pixels, x, y, buffer[i] | (buffer[i+1] << 8));
+				set555Pixel(img, pixels, x, y, buffer[i] | (buffer[i+1] << 8));
 				x++;
 				if (x >= width) {
 					y++; x = 0;
@@ -379,12 +388,12 @@ void SgImage::writeTransparentImage(uint32_t *pixels, const uint8_t *buffer, int
 	}
 }
 
-void SgImage::set555Pixel(uint32_t *pixels, int x, int y, uint16_t color) {
+void set555Pixel(struct SgImage *img, uint32_t *pixels, int x, int y, uint16_t color) {
 	if (color == 0xf81f) {
 		return;
 	}
 	
-	quint32 rgb = 0xff000000;
+	uint32_t rgb = 0xff000000;
 	
 	// Red: bits 11-15, should go to bits 17-24
 	rgb |= ((color & 0x7c00) << 9) | ((color & 0x7000) << 4);
@@ -395,47 +404,27 @@ void SgImage::set555Pixel(uint32_t *pixels, int x, int y, uint16_t color) {
 	// Blue: bits 1-5, should go to bits 1-8
 	rgb |= ((color & 0x1f) << 3) | ((color & 0x1c) >> 2);
 	
-	pixels[y * workRecord->width + x] = rgb;
+	pixels[y * img->workRecord->width + x] = rgb;
 }
 
-void SgImage::setAlphaPixel(uint32_t *pixels, int x, int y, uint8_t color) {
+void setAlphaPixel(struct SgImage *img, uint32_t *pixels, int x, int y, uint8_t color) {
 	/* Only the first five bits of the alpha channel are used */
 	uint8_t alpha = ((color & 0x1f) << 3) | ((color & 0x1c) >> 2);
 
-	int p = y * workRecord->width + x;
+	int p = y * img->workRecord->width + x;
 	pixels[p] = (pixels[p] & 0x00ffffff) | (alpha << 24);
 }
 
-void SgImage::mirrorResult(uint32_t *pixels) {
+void mirrorResult(struct SgImage *img, uint32_t *pixels) {
 	int x, y;
-	for (x = 0; x < (workRecord->width - 1) / 2; x++) {
-		for (y = 0; y < workRecord->height; y++) {
-			int p1 = y * workRecord->width + x;
-			int p2 = (y + 1) * workRecord->width - x;
+	for (x = 0; x < (img->workRecord->width - 1) / 2; x++) {
+		for (y = 0; y < img->workRecord->height; y++) {
+			int p1 = y * img->workRecord->width + x;
+			int p2 = (y + 1) * img->workRecord->width - x;
 			uint32_t tmp;
 			tmp = pixels[p1];
 			pixels[p1] = pixels[p2];
 			pixels[p2] = tmp;
 		}
 	}
-}
-
-uint16_t SgImage::getWidth() const {
-	return workRecord->width;
-}
-
-uint16_t SgImage::getHeight() const {
-	return workRecord->height;
-}
-
-uint32_t SgImage::getLength() const {
-	return workRecord->length;
-}
-
-uint16_t SgImage::getType() const {
-	return workRecord->type;
-}
-
-uint32_t SgImage::getOffset() const {
-	return workRecord->offset;
 }

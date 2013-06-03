@@ -101,5 +101,5 @@ bool SgBitmap::isExtern() const {
     if (images_n == 0) {
         return false;
     }
-    return images[0]->isExtern();
+    return is_sg_image_extern(images[0]);
 }

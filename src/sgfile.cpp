@@ -164,20 +164,20 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 	images = (SgImage**)(malloc(sizeof(SgImage*) * images_n));
 
 	// The first one is a dummy/null record
-	SgImage dummy(0, file, includeAlpha);
+	read_sg_image(0, file, includeAlpha);
 	
 	for (int i = 0; i < header->num_image_records; i++) {
-		SgImage *image = new SgImage(i + 1, file, includeAlpha);
-		int32_t invertOffset = image->invertOffset();
+		struct SgImage *image = read_sg_image(i + 1, file, includeAlpha);
+		int32_t invertOffset = image->workRecord->invert_offset;
 		if (invertOffset < 0 && (i + invertOffset) >= 0) {
-			image->setInvertImage(images[i + invertOffset]);
+			set_sg_image_invert(image, images[i + invertOffset]);
 		}
-		int bitmapId = image->bitmapId();
+		int bitmapId = image->workRecord->bitmap_id;
 		if (bitmapId >= 0 && bitmapId < bitmaps_n) {
 			bitmaps[bitmapId]->addImage(image);
-			image->setParent(bitmaps[bitmapId]);
+			image->parent = bitmaps[bitmapId];
 		} else {
-			printf("Image %d has no parent: %d", i, bitmapId);
+			printf("Image %d has no parent: %d\n", i, bitmapId);
 		}
 		
 		images[i] = image;
