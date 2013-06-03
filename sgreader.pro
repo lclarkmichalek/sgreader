@@ -18,6 +18,7 @@ HEADERS += aboutdialog.h \
            sgfile.h \
            sgimage.h \
            utils.h \
+           find555.h \
            gui/filelistpage.h \
            gui/inputdirpage.h \
            gui/outputdirpage.h \
@@ -33,6 +34,7 @@ SOURCES += aboutdialog.cpp \
            sgfile.cpp \
            sgimage.cpp \
            utils.cpp \
+           find555.cpp \
            gui/filelistpage.cpp \
            gui/inputdirpage.cpp \
            gui/outputdirpage.cpp \

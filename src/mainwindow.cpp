@@ -2,10 +2,11 @@
 #include "imagetreeitem.h"
 #include "aboutdialog.h"
 #include "licencedialog.h"
+#include "find555.h"
 #include "gui/extractwizard.h"
 
 MainWindow::MainWindow()
-	: QMainWindow(), appname("SGReader")
+	: QMainWindow(), appname("SGReader"), imageData(NULL)
 {
 	setWindowTitle(appname);
 	setWindowIcon(QIcon(":/icon.png"));
@@ -134,7 +135,17 @@ void MainWindow::loadFile(const QString &filename) {
 }
 
 void MainWindow::loadImage(SgImage *img) {
-	image = img->getImage();
+	QString filename = find555Filename(img->getParent());
+
+	if (imageData != NULL) {
+		// Just say NO to memory leaks
+		delete_sg_image_data(imageData);
+	}
+
+	imageData = img->getImageData(filename.toStdString().c_str());
+	image = QImage((uchar*)(imageData->data),
+		       imageData->width, imageData->height,
+		       QImage::Format_ARGB32);
 	if (image.isNull()) {
 		imageLabel->setText(QString("Couldn't load image: %0")
 			.arg(img->errorMessage()));

@@ -1,6 +1,8 @@
 #ifndef SGBITMAP_H
 #define SGBITMAP_H
 
+#include <stdbool.h>
+
 #include <QImage>
 #include <QList>
 #include <QString>
@@ -20,7 +22,8 @@ class SgBitmap {
 		QString bitmapName() const;
 		SgImage *image(int id);
 		void addImage(SgImage *child);
-		QFile *openFile(char isExtern);
+                const char *getFilename() const;
+                bool isExtern() const;
 		
 		enum {
 			RECORD_SIZE = 200
@@ -36,7 +39,7 @@ class SgBitmap {
 		QFile *file;
 		char *sgFilename;
 		int bitmapId;
-		char isExtern;
+                //		char isExtern;
 };
 
 #endif /* SGBITMAP_H */

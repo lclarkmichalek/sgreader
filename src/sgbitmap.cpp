@@ -92,69 +92,13 @@ SgImage *SgBitmap::image(int id) {
 	return images[id];
 }
 
-QFile *SgBitmap::openFile(char isExtern) {
-	if (file && this->isExtern != isExtern) {
-		delete file;
-		file = NULL;
-	}
-	this->isExtern = isExtern;
-	if (!file) {
-		QString filename = find555File();
-		if (filename.isEmpty()) {
-			return NULL;
-		}
-		
-		file = new QFile(filename);
-		if (!file->open(QIODevice::ReadOnly)) {
-			file = NULL;
-		}
-	}
-	return file;
+const char* SgBitmap::getFilename() const {
+    return (const char*)(sgFilename);
 }
 
-QString SgBitmap::find555File() {
-	QFileInfo fileinfo(sgFilename);
-	
-	// Fetch basename of the file
-	// either the same name as sg(2|3) or from file record
-	QString basename;
-	if (isExtern) {
-		basename = QString(record->filename);
-	} else {
-		QFileInfo fileinfo(sgFilename);
-		basename = fileinfo.fileName();
-	}
-	
-	// Change the extension to .555
-	int position = basename.lastIndexOf('.');
-	if (position != -1) {
-		basename.replace(position + 1, 3, "555");
-	}
-	//qDebug() << "Searching for file: " << basename;
-	
-	QString path = findFilenameCaseInsensitive(fileinfo.dir(), basename);
-	if (path.length() > 0) {
-		return path;
-	}
-	
-	QDir dirinfo = fileinfo.dir();
-	if (dirinfo.cd("555")) {
-		return findFilenameCaseInsensitive(dirinfo, basename);
-	}
-	return QString();
+bool SgBitmap::isExtern() const {
+    if (images_n == 0) {
+        return false;
+    }
+    return images[0]->isExtern();
 }
-
-QString SgBitmap::findFilenameCaseInsensitive(QDir directory, QString filename) {
-	filename = filename.toLower();
-	
-	QStringList files = directory.entryList(QStringList(filename), QDir::Files);
-	for (int i = 0; i < files.size(); i++) {
-		if (filename == files[i].toLower()) {
-			return directory.absoluteFilePath(files[i]);
-		}
-		//qDebug() << "No match: " << files[i];
-	}
-	
-	return QString();
-}
-

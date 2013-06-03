@@ -40,6 +40,7 @@ class MainWindow : public QMainWindow {
 		QString filename;
 		QString appname;
 		QImage image;
+                SgImageData *imageData;
 		SgFile *sgFile;
 		
 		QAction *openAction;

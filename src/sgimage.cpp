@@ -55,6 +55,13 @@ public:
 	uint32_t alpha_length;
 };
 
+void delete_sg_image_data(struct SgImageData *data) {
+	if (data->data != NULL)
+		free(data->data);
+	if (data != NULL)
+		free(data);
+}
+
 SgImage::SgImage(int id, FILE *file, bool includeAlpha)
 	: parent(NULL)
 {
@@ -106,6 +113,10 @@ void SgImage::setParent(SgBitmap *parent) {
 	this->parent = parent;
 }
 
+SgBitmap* SgImage::getParent() const {
+	return this->parent;
+}
+
 QString SgImage::errorMessage() const {
 	return error;
 }
@@ -115,7 +126,11 @@ void SgImage::setError(const QString &message) {
 	error = message;
 }
 
-QImage SgImage::getImage() {
+bool SgImage::isExtern() const {
+	return bool(workRecord->flags[0]);
+}
+
+struct SgImageData *SgImage::getImageData(const char *filename555) {
 	// START DEBUG ((
 	/*
 	if ((imageId >= 359 && imageId <= 368) || imageId == 459) {
@@ -130,43 +145,52 @@ QImage SgImage::getImage() {
 	// Trivial checks
 	if (!parent) {
 		setError("Image has no bitmap parent");
-		return QImage();
+		return NULL;
 	}
 	if (workRecord->width <= 0 || workRecord->height <= 0) {
 		setError(QString("Width or height invalid (%0 x %1)")
 			.arg(workRecord->width).arg(workRecord->height));
-		return QImage();
+		return NULL;
 	} else if (workRecord->length <= 0) {
 		setError("No image data available");
-		return QImage();
+		return NULL;
 	}
 	
-	quint8 *buffer = fillBuffer();
+        FILE *file555 = fopen(filename555, "rb");
+        if (file555 == NULL) {
+		qDebug("Unable to open 555 file");
+		return NULL;
+        }
+
+	uint8_t *buffer = fillBuffer(file555);
+	fclose(file555);
 	if (buffer == NULL) {
 		qDebug("Unable to load buffer"); // error already set in fillBuffer()
-		return QImage();
+		return NULL;
 	}
-	
-	QImage result(workRecord->width, workRecord->height, QImage::Format_ARGB32);
-	result.fill(0); // Transparent black
-	
+
+	uint32_t *pixels = (uint32_t*)(malloc(workRecord->width * workRecord->height * sizeof(uint32_t)));
+	int i;
+	for (i = 0; i < workRecord->width * workRecord->height; i++)
+		pixels[i] = 0;
+
 	switch (workRecord->type) {
 		case 0:
 		case 1:
 		case 10:
 		case 12:
 		case 13:
-			loadPlainImage(&result, buffer);
+			loadPlainImage(pixels, buffer);
 			break;
 		
 		case 30:
-			loadIsometricImage(&result, buffer);
+			loadIsometricImage(pixels, buffer);
 			break;
 		
 		case 256:
 		case 257:
 		case 276:
-			loadSpriteImage(&result, buffer);
+			loadSpriteImage(pixels, buffer);
 			break;
 		
 		default:
@@ -175,55 +199,58 @@ QImage SgImage::getImage() {
 	}
 	
 	if (workRecord->alpha_length) {
-		quint8 *alpha_buffer = &(buffer[workRecord->length]);
-		loadAlphaMask(&result, alpha_buffer);
+		uint8_t *alpha_buffer = &(buffer[workRecord->length]);
+		loadAlphaMask(pixels, alpha_buffer);
 	}
 	
-	delete[] buffer;
+	free(buffer);
 	
 	if (invert) {
-		return result.mirrored(true, false);
+		mirrorResult(pixels);
 	}
+
+	struct SgImageData *result = (struct SgImageData*)malloc(sizeof(struct SgImageData));
+	result->width = workRecord->width;
+	result->height = workRecord->height;
+	result->rMask = 0xff;
+	result->bMask = 0xff00;
+	result->gMask = 0xff0000;
+	result->aMask = 0xff000000;
+	result->data = pixels;
 	return result;
 }
 
-quint8* SgImage::fillBuffer() {
-	QFile *file = parent->openFile(workRecord->flags[0]);
-	if (file == NULL) {
-		setError("Unable to open 555 file");
-		return NULL;
-	}
-	
+uint8_t* SgImage::fillBuffer(FILE *file) {
 	int data_length = workRecord->length + workRecord->alpha_length;
 	if (data_length <= 0) {
 		qDebug("Data length: %d", data_length); // not an error per se
 	}
-	char *buffer = new char[data_length];
+	uint8_t *buffer = (uint8_t*)(malloc(data_length * sizeof(uint8_t)));
 	if (buffer == NULL) {
 		setError(QString("Cannot allocate %0 bytes of memory").arg(data_length));
 		return NULL;
 	}
 	
 	// Somehow externals have 1 byte added to their offset
-	file->seek(workRecord->offset - workRecord->flags[0]);
+	fseek(file, workRecord->offset - workRecord->flags[0], SEEK_SET);
 	
-	int data_read = (int)file->read(buffer, data_length);
+	int data_read = (int)fread(buffer, 1, data_length, file);
 	if (data_length != data_read) {
-		if (data_read + 4 == data_length && file->atEnd()) {
+		if (data_read + 4 == data_length && feof(file)) {
 			// Exception for some C3 graphics: last image is 'missing' 4 bytes
 			buffer[data_read] = buffer[data_read+1] = 0;
 			buffer[data_read+2] = buffer[data_read+3] = 0;
 		} else {
 			setError(QString("Unable to read %0 bytes from file (read %1 bytes)")
 				.arg(data_length).arg(data_read));
-			delete[] buffer;
+			free(buffer);
 			return NULL;
 		}
 	}
-	return (quint8*) buffer;
+	return buffer;
 }
 
-void SgImage::loadPlainImage(QImage *img, quint8 *buffer) {
+void SgImage::loadPlainImage(uint32_t *pixels, const uint8_t *buffer) {
 	// Check whether the image data is OK
 	if (workRecord->height * workRecord->width * 2 != (int)workRecord->length) {
 		setError("Image data length doesn't match image size");
@@ -233,26 +260,26 @@ void SgImage::loadPlainImage(QImage *img, quint8 *buffer) {
 	int i = 0;
 	for (int y = 0; y < (int)workRecord->height; y++) {
 		for (int x = 0; x < (int)workRecord->width; x++, i+= 2) {
-			set555Pixel(img, x, y, buffer[i] | (buffer[i+1] << 8));
+			set555Pixel(pixels, x, y, buffer[i] | (buffer[i+1] << 8));
 		}
 	}
 }
 
-void SgImage::loadIsometricImage(QImage *img, quint8 *buffer) {
+void SgImage::loadIsometricImage(uint32_t *pixels, const uint8_t *buffer) {
 	
-	writeIsometricBase(img, buffer);
-	writeTransparentImage(img, &buffer[workRecord->uncompressed_length],
+	writeIsometricBase(pixels, buffer);
+	writeTransparentImage(pixels, &buffer[workRecord->uncompressed_length],
 		workRecord->length - workRecord->uncompressed_length);
 }
 
-void SgImage::loadSpriteImage(QImage *img, quint8 *buffer) {
-	writeTransparentImage(img, buffer, workRecord->length);
+void SgImage::loadSpriteImage(uint32_t *pixels, const uint8_t *buffer) {
+	writeTransparentImage(pixels, buffer, workRecord->length);
 }
 
-void SgImage::loadAlphaMask(QImage *img, const quint8 *buffer) {
+void SgImage::loadAlphaMask(uint32_t *pixels, const uint8_t *buffer) {
 	int i = 0;
 	int x = 0, y = 0, j;
-	int width = img->width();
+	int width = workRecord->width;
 	int length = workRecord->alpha_length;
 	
 	while (i < length) {
@@ -266,7 +293,7 @@ void SgImage::loadAlphaMask(QImage *img, const quint8 *buffer) {
 		} else {
 			/* `c' is the number of image data bytes */
 			for (j = 0; j < c; j++, i++) {
-				setAlphaPixel(img, x, y, buffer[i]);
+				setAlphaPixel(pixels, x, y, buffer[i]);
 				x++;
 				if (x >= width) {
 					y++; x = 0;
@@ -276,16 +303,16 @@ void SgImage::loadAlphaMask(QImage *img, const quint8 *buffer) {
 	}
 }
 
-void SgImage::writeIsometricBase(QImage *img, const quint8 *buffer) {
+void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
 	int i = 0, x, y;
 	int width, height, height_offset;
 	int size = workRecord->flags[3];
 	int x_offset, y_offset;
 	int tile_bytes, tile_height, tile_width;
 	
-	width = img->width();
+	width = workRecord->width;
 	height = (width + 2) / 2; /* 58 -> 30, 118 -> 60, etc */
-	height_offset = img->height() - height;
+	height_offset = workRecord->height - height;
 	y_offset = height_offset;
 	
 	if (size == 0) {
@@ -331,7 +358,7 @@ void SgImage::writeIsometricBase(QImage *img, const quint8 *buffer) {
 	for (y = 0; y < (size + (size - 1)); y++) {
 		x_offset = (y < size ? (size - y - 1) : (y - size + 1)) * tile_height;
 		for (x = 0; x < (y < size ? y + 1 : 2 * size - y - 1); x++, i++) {
-			writeIsometricTile(img, &buffer[i * tile_bytes],
+			writeIsometricTile(pixels, &buffer[i * tile_bytes],
 				x_offset, y_offset, tile_width, tile_height);
 			x_offset += tile_width + 2;
 		}
@@ -340,7 +367,7 @@ void SgImage::writeIsometricBase(QImage *img, const quint8 *buffer) {
 	
 }
 
-void SgImage::writeIsometricTile(QImage *img, const quint8 *buffer,
+void SgImage::writeIsometricTile(uint32_t *pixels, const uint8_t *buffer,
 		int offset_x, int offset_y, int tile_width, int tile_height) {
 	int half_height = tile_height / 2;
 	int x, y, i = 0;
@@ -349,7 +376,7 @@ void SgImage::writeIsometricTile(QImage *img, const quint8 *buffer,
 		int start = tile_height - 2 * (y + 1);
 		int end = tile_width - start;
 		for (x = start; x < end; x++, i += 2) {
-			set555Pixel(img, offset_x + x, offset_y + y,
+			set555Pixel(pixels, offset_x + x, offset_y + y,
 				(buffer[i+1] << 8) | buffer[i]);
 		}
 	}
@@ -357,16 +384,16 @@ void SgImage::writeIsometricTile(QImage *img, const quint8 *buffer,
 		int start = 2 * y - tile_height;
 		int end = tile_width - start;
 		for (x = start; x < end; x++, i += 2) {
-			set555Pixel(img, offset_x + x, offset_y + y,
+			set555Pixel(pixels, offset_x + x, offset_y + y,
 				(buffer[i+1] << 8) | buffer[i]);
 		}
 	}
 }
 
-void SgImage::writeTransparentImage(QImage *img, const quint8 *buffer, int length) {
+void SgImage::writeTransparentImage(uint32_t *pixels, const uint8_t *buffer, int length) {
 	int i = 0;
 	int x = 0, y = 0, j;
-	int width = img->width();
+	int width = workRecord->width;
 	
 	while (i < length) {
 		quint8 c = buffer[i++];
@@ -379,7 +406,7 @@ void SgImage::writeTransparentImage(QImage *img, const quint8 *buffer, int lengt
 		} else {
 			/* `c' is the number of image data bytes */
 			for (j = 0; j < c; j++, i += 2) {
-				set555Pixel(img, x, y, buffer[i] | (buffer[i+1] << 8));
+				set555Pixel(pixels, x, y, buffer[i] | (buffer[i+1] << 8));
 				x++;
 				if (x >= width) {
 					y++; x = 0;
@@ -389,7 +416,7 @@ void SgImage::writeTransparentImage(QImage *img, const quint8 *buffer, int lengt
 	}
 }
 
-void SgImage::set555Pixel(QImage *img, int x, int y, quint16 color) {
+void SgImage::set555Pixel(uint32_t *pixels, int x, int y, uint16_t color) {
 	if (color == 0xf81f) {
 		return;
 	}
@@ -405,12 +432,27 @@ void SgImage::set555Pixel(QImage *img, int x, int y, quint16 color) {
 	// Blue: bits 1-5, should go to bits 1-8
 	rgb |= ((color & 0x1f) << 3) | ((color & 0x1c) >> 2);
 	
-	img->setPixel(x, y, rgb);
+	pixels[y * workRecord->width + x] = rgb;
 }
 
-void SgImage::setAlphaPixel(QImage *img, int x, int y, quint8 color) {
+void SgImage::setAlphaPixel(uint32_t *pixels, int x, int y, uint8_t color) {
 	/* Only the first five bits of the alpha channel are used */
-	quint8 alpha = ((color & 0x1f) << 3) | ((color & 0x1c) >> 2);
-	
-	img->setPixel(x, y, (alpha << 24) | (img->pixel(x, y) & 0xffffff));
+	uint8_t alpha = ((color & 0x1f) << 3) | ((color & 0x1c) >> 2);
+
+	int p = y * workRecord->width + x;
+	pixels[p] = (pixels[p] & 0x00ffffff) | (alpha << 24);
+}
+
+void SgImage::mirrorResult(uint32_t *pixels) {
+	int x, y;
+	for (x = 0; x < (workRecord->width - 1) / 2; x++) {
+		for (y = 0; y < workRecord->height; y++) {
+			int p1 = y * workRecord->width + x;
+			int p2 = (y + 1) * workRecord->width - x;
+			uint32_t tmp;
+			tmp = pixels[p1];
+			pixels[p1] = pixels[p2];
+			pixels[p2] = tmp;
+		}
+	}
 }

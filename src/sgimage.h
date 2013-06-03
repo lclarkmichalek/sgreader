@@ -1,8 +1,18 @@
 #ifndef SGIMAGE_H
 #define SGIMAGE_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include "sgbitmap.h"
-#include <QImage>
+
+struct SgImageData {
+    int width, height;
+    int rMask, gMask, bMask, aMask;
+    uint32_t *data;
+};
+
+void delete_sg_image_data(struct SgImageData *data);
 
 class SgImageRecord;
 
@@ -10,35 +20,39 @@ class SgImage {
 	public:
 		SgImage(int id, FILE *file, bool includeAlpha);
 		~SgImage();
-		qint32 invertOffset() const;
+		int32_t invertOffset() const;
 		int bitmapId() const;
 		QString description() const;
 		QString fullDescription() const;
+                SgBitmap *getParent() const;
 		void setInvertImage(SgImage *invert);
 		void setParent(SgBitmap *parent);
-		QImage getImage();
+		struct SgImageData *getImageData(const char *filename);
 		QString errorMessage() const;
+                bool isExtern() const;
 		
 	private:
-		quint8 *fillBuffer();
+		uint8_t *fillBuffer(FILE *file);
 		/* Image loaders */
-		void loadPlainImage(QImage *img, quint8 *buffer);
-		void loadIsometricImage(QImage *img, quint8 *buffer);
-		void loadSpriteImage(QImage *img, quint8 *buffer);
-		void loadAlphaMask(QImage *img, const quint8 *buffer);
+		void loadPlainImage(uint32_t *pixels, const uint8_t *buffer);
+		void loadIsometricImage(uint32_t *pixels, const uint8_t *buffer);
+		void loadSpriteImage(uint32_t *pixels, const uint8_t *buffer);
+		void loadAlphaMask(uint32_t *pixels, const uint8_t *buffer);
 		
 		/* Image decoding methods */
-		void writeIsometricBase(QImage *img, const quint8 *buffer);
-		void writeIsometricTile(QImage *img, const quint8 *buffer,
+		void writeIsometricBase(uint32_t *pixels, const uint8_t *buffer);
+		void writeIsometricTile(uint32_t *pixels, const uint8_t *buffer,
 			int offset_x, int offset_y, int tile_width, int tile_height);
-		void writeTransparentImage(QImage *img, const quint8 *buffer, int length);
+		void writeTransparentImage(uint32_t *pixels, const uint8_t *buffer, int length);
 		
 		/* Pixel setting */
-		void set555Pixel(QImage *img, int x, int y, quint16 color);
-		void setAlphaPixel(QImage *img, int x, int y, quint8 color);
+		void set555Pixel(uint32_t *pixels, int x, int y, uint16_t color);
+		void setAlphaPixel(uint32_t *pixels, int x, int y, uint8_t color);
 		
 		/* Error handling */
 		void setError(const QString &message);
+
+                void mirrorResult(uint32_t *pixels);
 		
 		SgImageRecord *record;
 		SgImageRecord *workRecord;

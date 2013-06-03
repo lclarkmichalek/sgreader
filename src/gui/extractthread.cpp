@@ -3,6 +3,7 @@
 #include "../sgfile.h"
 #include "../sgbitmap.h"
 #include "../sgimage.h"
+#include "../find555.h"
 
 #include <QDebug>
 #include <QFileInfo>
@@ -78,11 +79,17 @@ void ExtractThread::extractFile(const QString &filename) {
 			bmpName = bitmap->bitmapName();
 		}
 		int images = bitmap->imageCount();
+
+                QString filename = find555Filename(bitmap);
 		
 		for (int n = 0; n < images; n++) {
 			emit progressChanged(++total);
 			
-			QImage img = bitmap->image(n)->getImage();
+			struct SgImageData *sgData = bitmap->image(n)->
+                            getImageData(filename.toStdString().c_str());
+                        QImage img((uchar*)(sgData->data),
+                                   sgData->width, sgData->height,
+                                   QImage::Format_ARGB32);
 			if (!img.isNull()) {
 				QString pngfile = QString("%0_%1.png")
 					.arg(bmpName)
@@ -107,6 +114,7 @@ void ExtractThread::extractFile(const QString &filename) {
 				errorMessages.append(error);
 				errorImages++;
 			}
+                        delete_sg_image_data(sgData);
 			
 			if (doCancel) return;
 		}
