@@ -2,14 +2,8 @@
 #define SGBITMAP_H
 
 #include <stdbool.h>
+#include <stdio.h>
 
-#include <QImage>
-#include <QList>
-#include <QString>
-#include <QDir>
-
-class QDataStream;
-class QFile;
 class SgBitmapRecord;
 class SgImage;
 
@@ -18,8 +12,8 @@ class SgBitmap {
 		SgBitmap(int id, const char *sgFilename, FILE *file);
 		~SgBitmap();
 		int imageCount() const;
-		QString description() const;
-		QString bitmapName() const;
+                char *description() const;
+                char *bitmapName() const;
 		SgImage *image(int id);
 		void addImage(SgImage *child);
                 const char *getFilename() const;
@@ -29,17 +23,12 @@ class SgBitmap {
 			RECORD_SIZE = 200
 		};
 	private:
-		QString find555File();
-		QString findFilenameCaseInsensitive(QDir directory, QString filename);
-		
 		SgImage **images;
 		int images_n;
 		int images_c;
 		SgBitmapRecord *record;
-		QFile *file;
 		char *sgFilename;
 		int bitmapId;
-                //		char isExtern;
 };
 
 #endif /* SGBITMAP_H */

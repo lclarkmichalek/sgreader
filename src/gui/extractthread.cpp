@@ -7,6 +7,7 @@
 
 #include <QDebug>
 #include <QFileInfo>
+#include <QImage>
 
 ExtractThread::ExtractThread(const QStringList &files, const QString &outputDir,
 	bool extractSystem)

@@ -2,9 +2,9 @@
 #include "sgimage.h"
 #include "utils.h"
 
-#include <strings.h>
-
-#include <QFile>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
 
 class SgBitmapRecord {
 public:
@@ -38,8 +38,7 @@ public:
 };
 
 SgBitmap::SgBitmap(int id, const char *sgFilename, FILE *file)
-	: images(NULL), images_n(0), images_c(0),
-	  file(NULL)
+	: images(NULL), images_n(0), images_c(0)
 {
 	bitmapId = id;
 	this->sgFilename = strdup(sgFilename);
@@ -47,9 +46,6 @@ SgBitmap::SgBitmap(int id, const char *sgFilename, FILE *file)
 }
 
 SgBitmap::~SgBitmap() {
-	if (file) {
-		delete file;
-	}
 	free(sgFilename);
 	if (images != NULL)
 		free(images);
@@ -59,14 +55,19 @@ int SgBitmap::imageCount() const {
 	return images_n;
 }
 
-QString SgBitmap::description() const {
-	return QString("%0 (%1)")
-		.arg(record->filename)
-		.arg(images_n);
+char *SgBitmap::description() const {
+	int size = strlen(record->filename) + 1 + int(log(images_n)/log(2));
+	char *str = (char*)malloc((size + 1) * sizeof(char));
+	snprintf(str, size + 1, "%s %i", record->filename, images_n);
+	return str;
 }
 
-QString SgBitmap::bitmapName() const {
-	return QString(record->filename).remove(".bmp", Qt::CaseInsensitive);
+char *SgBitmap::bitmapName() const {
+	int size = strlen(record->filename) - 3;
+	char *str = (char*)malloc((size + 1) * sizeof(char));
+	strncpy(str, record->filename, size);
+	str[size] = '\0';
+	return str;
 }
 
 void SgBitmap::addImage(SgImage *child) {

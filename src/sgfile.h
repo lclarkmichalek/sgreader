@@ -32,7 +32,6 @@ class SgFile {
 		SgImage **images;
 		int images_n;
 		char* filename;
-		char* basefilename;
 		SgHeader *header;
 };
 

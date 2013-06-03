@@ -1,6 +1,8 @@
 #include "sgimage.h"
 #include "utils.h"
 
+#include <math.h>
+
 #include <QFile>
 #include <QDataStream>
 
@@ -13,48 +15,6 @@ enum {
 	ISOMETRIC_LARGE_TILE_BYTES = 3200
 };
 
-class SgImageRecord {
-public:
-	SgImageRecord(FILE *f, bool includeAlpha) {
-		readUInt32le(f, &offset);
-		readUInt32le(f, &length);
-		readUInt32le(f, &uncompressed_length);
-		fseek(f, 4, SEEK_CUR);
-		readInt32le(f, &invert_offset);
-		readInt16le(f, &width);
-		readInt16le(f, &height);
-		fseek(f, 26, SEEK_CUR);
-		readUInt16le(f, &type);
-		fread(flags, 4, 1, f);
-		readUInt8le(f, &bitmap_id);
-		fseek(f, 7, SEEK_CUR);
-		
-		if (includeAlpha) {
-			readUInt32le(f, &alpha_offset);
-			readUInt32le(f, &alpha_length);
-		} else {
-			alpha_offset = alpha_length = 0;
-		}
-	}
-	
-	uint32_t offset;
-	uint32_t length;
-	uint32_t uncompressed_length;
-	/* 4 zero bytes: */
-	int32_t invert_offset;
-	int16_t width;
-	int16_t height;
-	/* 26 unknown bytes, mostly zero, first four are 2 shorts */
-	uint16_t type;
-	/* 4 flag/option-like bytes: */
-	char flags[4];
-	uint8_t bitmap_id;
-	/* 3 bytes + 4 zero bytes */
-	/* For D6 and up SG3 versions: alpha masks */
-	uint32_t alpha_offset;
-	uint32_t alpha_length;
-};
-
 void delete_sg_image_data(struct SgImageData *data) {
 	if (data->data != NULL)
 		free(data->data);
@@ -62,11 +22,38 @@ void delete_sg_image_data(struct SgImageData *data) {
 		free(data);
 }
 
+struct SgImageRecord read_sg_image_record(FILE *f, bool includeAlpha) {
+	struct SgImageRecord rec;
+	readUInt32le(f, &rec.offset);
+	readUInt32le(f, &rec.length);
+	readUInt32le(f, &rec.uncompressed_length);
+	fseek(f, 4, SEEK_CUR);
+	readInt32le(f, &rec.invert_offset);
+	readInt16le(f, &rec.width);
+	readInt16le(f, &rec.height);
+	fseek(f, 26, SEEK_CUR);
+	readUInt16le(f, &rec.type);
+	fread(rec.flags, 4, 1, f);
+	readUInt8le(f, &rec.bitmap_id);
+	fseek(f, 7, SEEK_CUR);
+		
+	if (includeAlpha) {
+		readUInt32le(f, &rec.alpha_offset);
+		readUInt32le(f, &rec.alpha_length);
+	} else {
+		rec.alpha_offset = rec.alpha_length = 0;
+	}
+	return rec;
+}
+
 SgImage::SgImage(int id, FILE *file, bool includeAlpha)
-	: parent(NULL)
 {
+	parent = NULL;
+	error = NULL;
+
 	imageId = id;
-	record = workRecord = new SgImageRecord(file, includeAlpha);
+	record = workRecord = (struct SgImageRecord*)malloc(sizeof(struct SgImageRecord));
+	*record = read_sg_image_record(file, includeAlpha);
 	if (record->invert_offset) {
 		invert = true;
 	} else {
@@ -75,7 +62,10 @@ SgImage::SgImage(int id, FILE *file, bool includeAlpha)
 }
 
 SgImage::~SgImage() {
-	if (record) delete record;
+	if (error != NULL)
+		free(error);
+	if (record)
+		free(record);
 	// workRecord is deleted by whoever owns it
 }
 
@@ -86,23 +76,6 @@ int32_t SgImage::invertOffset() const {
 int SgImage::bitmapId() const {
 	if (workRecord) return workRecord->bitmap_id;
 	return record->bitmap_id;
-}
-
-QString SgImage::description() const {
-	return QString("%0x%1")
-		.arg(workRecord->width)
-		.arg(workRecord->height);
-}
-
-QString SgImage::fullDescription() const {
-	return QString("ID %7: offset %0, length %1, width %2, height %3, type %5, %6")
-		.arg(workRecord->offset)
-		.arg(workRecord->length)
-		.arg(workRecord->width)
-		.arg(workRecord->height)
-		.arg(workRecord->type)
-		.arg(workRecord->flags[0] ? "external" : "internal")
-		.arg(imageId);
 }
 
 void SgImage::setInvertImage(SgImage *invert) {
@@ -117,13 +90,15 @@ SgBitmap* SgImage::getParent() const {
 	return this->parent;
 }
 
-QString SgImage::errorMessage() const {
+char *SgImage::errorMessage() const {
 	return error;
 }
 
-void SgImage::setError(const QString &message) {
-	qDebug(message.toAscii().constData());
-	error = message;
+void SgImage::setError(const char *message) {
+	printf("SGErr: %s\n", message);
+	if (error != NULL)
+		free(error);
+	error = strdup(message);
 }
 
 bool SgImage::isExtern() const {
@@ -148,8 +123,7 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 		return NULL;
 	}
 	if (workRecord->width <= 0 || workRecord->height <= 0) {
-		setError(QString("Width or height invalid (%0 x %1)")
-			.arg(workRecord->width).arg(workRecord->height));
+		setError("Width or height invalid");
 		return NULL;
 	} else if (workRecord->length <= 0) {
 		setError("No image data available");
@@ -158,14 +132,14 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 	
         FILE *file555 = fopen(filename555, "rb");
         if (file555 == NULL) {
-		qDebug("Unable to open 555 file");
+		setError("Unable to open 555 file");
 		return NULL;
         }
 
 	uint8_t *buffer = fillBuffer(file555);
 	fclose(file555);
 	if (buffer == NULL) {
-		qDebug("Unable to load buffer"); // error already set in fillBuffer()
+		// Don't set error, as error already set in fillBuffer()
 		return NULL;
 	}
 
@@ -194,8 +168,8 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 			break;
 		
 		default:
-			qWarning("Unknown image type: %d", workRecord->type);
-			break;
+			setError("Unknown image type");
+			return NULL;
 	}
 	
 	if (workRecord->alpha_length) {
@@ -223,13 +197,9 @@ struct SgImageData *SgImage::getImageData(const char *filename555) {
 uint8_t* SgImage::fillBuffer(FILE *file) {
 	int data_length = workRecord->length + workRecord->alpha_length;
 	if (data_length <= 0) {
-		qDebug("Data length: %d", data_length); // not an error per se
+		setError("Data length < 0");
 	}
 	uint8_t *buffer = (uint8_t*)(malloc(data_length * sizeof(uint8_t)));
-	if (buffer == NULL) {
-		setError(QString("Cannot allocate %0 bytes of memory").arg(data_length));
-		return NULL;
-	}
 	
 	// Somehow externals have 1 byte added to their offset
 	fseek(file, workRecord->offset - workRecord->flags[0], SEEK_SET);
@@ -241,8 +211,7 @@ uint8_t* SgImage::fillBuffer(FILE *file) {
 			buffer[data_read] = buffer[data_read+1] = 0;
 			buffer[data_read+2] = buffer[data_read+3] = 0;
 		} else {
-			setError(QString("Unable to read %0 bytes from file (read %1 bytes)")
-				.arg(data_length).arg(data_read));
+			setError("Unable to read from file");
 			free(buffer);
 			return NULL;
 		}
@@ -338,19 +307,13 @@ void SgImage::writeIsometricBase(uint32_t *pixels, const uint8_t *buffer) {
 		tile_height = ISOMETRIC_LARGE_TILE_HEIGHT;
 		tile_width  = ISOMETRIC_LARGE_TILE_WIDTH;
 	} else {
-		setError(QString("Unknown tile size: %0 (height %1, width %2, size %3)")
-			.arg(2 * height / size).arg(height).arg(width).arg(size));
+		setError("Unknown tile size");
 		return;
 	}
 	
 	/* Check if buffer length is enough: (width + 2) * height / 2 * 2bpp */
 	if ((width + 2) * height != (int)workRecord->uncompressed_length) {
-		setError(QString(
-			"Data length doesn't match footprint size: %0 vs %1 (%2) %3")
-			.arg((width + 2) * height)
-			.arg(workRecord->uncompressed_length)
-			.arg(workRecord->length)
-			.arg(workRecord->invert_offset));
+		setError("Data length doesn't match footprint size");
 		return;
 	}
 	
@@ -455,4 +418,24 @@ void SgImage::mirrorResult(uint32_t *pixels) {
 			pixels[p2] = tmp;
 		}
 	}
+}
+
+uint16_t SgImage::getWidth() const {
+	return workRecord->width;
+}
+
+uint16_t SgImage::getHeight() const {
+	return workRecord->height;
+}
+
+uint32_t SgImage::getLength() const {
+	return workRecord->length;
+}
+
+uint16_t SgImage::getType() const {
+	return workRecord->type;
+}
+
+uint32_t SgImage::getOffset() const {
+	return workRecord->offset;
 }

@@ -14,7 +14,24 @@ struct SgImageData {
 
 void delete_sg_image_data(struct SgImageData *data);
 
-class SgImageRecord;
+struct SgImageRecord {
+	uint32_t offset;
+	uint32_t length;
+	uint32_t uncompressed_length;
+	/* 4 zero bytes: */
+	int32_t invert_offset;
+	int16_t width;
+	int16_t height;
+	/* 26 unknown bytes, mostly zero, first four are 2 shorts */
+	uint16_t type;
+	/* 4 flag/option-like bytes: */
+	char flags[4];
+	uint8_t bitmap_id;
+	/* 3 bytes + 4 zero bytes */
+	/* For D6 and up SG3 versions: alpha masks */
+	uint32_t alpha_offset;
+	uint32_t alpha_length;
+};
 
 class SgImage {
 	public:
@@ -22,14 +39,18 @@ class SgImage {
 		~SgImage();
 		int32_t invertOffset() const;
 		int bitmapId() const;
-		QString description() const;
-		QString fullDescription() const;
                 SgBitmap *getParent() const;
 		void setInvertImage(SgImage *invert);
 		void setParent(SgBitmap *parent);
 		struct SgImageData *getImageData(const char *filename);
-		QString errorMessage() const;
+		char *errorMessage() const;
                 bool isExtern() const;
+
+		uint16_t getWidth() const;
+		uint16_t getHeight() const;
+		uint32_t getOffset() const;
+		uint32_t getLength() const;
+		uint16_t getType() const;
 		
 	private:
 		uint8_t *fillBuffer(FILE *file);
@@ -50,14 +71,14 @@ class SgImage {
 		void setAlphaPixel(uint32_t *pixels, int x, int y, uint8_t color);
 		
 		/* Error handling */
-		void setError(const QString &message);
+		void setError(const char *msg);
 
                 void mirrorResult(uint32_t *pixels);
 		
 		SgImageRecord *record;
 		SgImageRecord *workRecord;
 		SgBitmap *parent;
-		QString error;
+		char *error;
 		bool invert;
 		int imageId;
 };

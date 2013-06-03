@@ -2,6 +2,7 @@
 
 #include <QFileInfo>
 #include <QFile>
+#include <QDir>
 
 #include <stdbool.h>
 

@@ -2,6 +2,10 @@
 #include "sgimage.h"
 #include "utils.h"
 
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 enum {
 	SG_HEADER_SIZE = 680
 };
@@ -40,9 +44,6 @@ SgFile::SgFile(const char *filename)
 	  header(NULL)
 {
 	this->filename = strdup(filename);
-	
-	QFileInfo fi(filename);
-	this->basefilename = strdup(fi.baseName().toStdString().c_str());
 }
 
 SgFile::~SgFile() {
@@ -57,7 +58,6 @@ SgFile::~SgFile() {
 	}
 	free(images);
 	free(filename);
-	free(basefilename);
 }
 
 int SgFile::bitmapCount() const {
@@ -104,7 +104,7 @@ bool SgFile::load() {
 	FILE *file = fopen(filename, "r");
 
 	if (file == NULL) {
-		qDebug("unable to open file");
+		printf("unable to open file");
 		return false;
 	}
 
@@ -115,8 +115,8 @@ bool SgFile::load() {
 		return false;
 	}
 	
-	qDebug("Read header, num bitmaps = %d, num images = %d",
-		header->num_bitmap_records, header->num_image_records);
+	printf("Read header, num bitmaps = %d, num images = %d",
+               header->num_bitmap_records, header->num_image_records);
 	
 	loadBitmaps(file);
 	
@@ -127,7 +127,7 @@ bool SgFile::load() {
 	fclose(file);
 	
 	if (bitmaps_n > 1 && images_n == bitmaps[0]->imageCount()) {
-		qDebug("SG file has %d bitmaps but only the first is in use",
+		printf("SG file has %d bitmaps but only the first is in use",
 			bitmaps_n);
 		// Remove the bitmaps other than the first
 		for (int i = bitmaps_n - 1; i > 0; i--) {
@@ -168,7 +168,7 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 	
 	for (int i = 0; i < header->num_image_records; i++) {
 		SgImage *image = new SgImage(i + 1, file, includeAlpha);
-		qint32 invertOffset = image->invertOffset();
+		int32_t invertOffset = image->invertOffset();
 		if (invertOffset < 0 && (i + invertOffset) >= 0) {
 			image->setInvertImage(images[i + invertOffset]);
 		}
@@ -177,7 +177,7 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 			bitmaps[bitmapId]->addImage(image);
 			image->setParent(bitmaps[bitmapId]);
 		} else {
-			qDebug("Image %d has no parent: %d", i, bitmapId);
+			printf("Image %d has no parent: %d", i, bitmapId);
 		}
 		
 		images[i] = image;

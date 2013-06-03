@@ -8,6 +8,8 @@ OBJECTS_DIR = build/obj
 MOC_DIR = build/moc
 RCC_DIR = build/rcc
 
+CONFIG += debug
+
 
 # Input
 HEADERS += aboutdialog.h \
