@@ -37,7 +37,7 @@ struct SgImageRecord {
 struct SgImage {
 	SgImageRecord *record;
 	SgImageRecord *workRecord;
-	SgBitmap *parent;
+	struct SgBitmap *parent;
 	char *error;
 	bool invert;
 	int imageId;

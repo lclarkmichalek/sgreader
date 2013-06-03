@@ -7,7 +7,8 @@
 #include <stdio.h>
 
 enum {
-	SG_HEADER_SIZE = 680
+	SG_HEADER_SIZE = 680,
+	SG_BITMAP_RECORD_SIZE = 200
 };
 
 class SgHeader {
@@ -69,7 +70,7 @@ int SgFile::imageCount(int bitmapId) const {
 		return -1;
 	}
 	
-	return bitmaps[bitmapId]->imageCount();
+	return bitmaps[bitmapId]->images_n;
 }
 
 int SgFile::totalImageCount() const {
@@ -85,11 +86,11 @@ SgImage *SgFile::image(int imageId) const {
 
 SgImage *SgFile::image(int bitmapId, int imageId) const {
 	if (bitmapId < 0 || bitmapId >= bitmaps_n ||
-		imageId < 0 || imageId >= bitmaps[bitmapId]->imageCount()) {
+		imageId < 0 || imageId >= bitmaps[bitmapId]->images_n) {
 		return NULL;
 	}
 	
-	return bitmaps[bitmapId]->image(imageId);
+	return bitmaps[bitmapId]->images[imageId];
 }
 
 SgBitmap *SgFile::getBitmap(int bitmapId) const {
@@ -104,7 +105,7 @@ bool SgFile::load() {
 	FILE *file = fopen(filename, "r");
 
 	if (file == NULL) {
-		printf("unable to open file");
+		printf("unable to open file\n");
 		return false;
 	}
 
@@ -120,14 +121,14 @@ bool SgFile::load() {
 	
 	loadBitmaps(file);
 	
-	int pos = SG_HEADER_SIZE + maxBitmapRecords() * SgBitmap::RECORD_SIZE;
+	int pos = SG_HEADER_SIZE + maxBitmapRecords() * SG_BITMAP_RECORD_SIZE;
 	fseek(file, pos, SEEK_SET);
 	
 	loadImages(file, header->version >= 0xd6);
 	fclose(file);
 	
-	if (bitmaps_n > 1 && images_n == bitmaps[0]->imageCount()) {
-		printf("SG file has %d bitmaps but only the first is in use",
+	if (bitmaps_n > 1 && images_n == bitmaps[0]->images_n) {
+		printf("SG file has %d bitmaps but only the first is in use\n",
 			bitmaps_n);
 		// Remove the bitmaps other than the first
 		for (int i = bitmaps_n - 1; i > 0; i--) {
@@ -149,10 +150,9 @@ void SgFile::loadBitmaps(FILE *file) {
 	bitmaps = (SgBitmap**)(malloc(sizeof(SgBitmap*) * bitmaps_n));
 
 	for (int i = 0; i < header->num_bitmap_records; i++) {
-		SgBitmap *bitmap = new SgBitmap(i, filename, file);
+		SgBitmap *bitmap = read_sg_bitmap(i, filename, file);
 		bitmaps[i] = bitmap;
 	}
-	
 }
 
 void SgFile::loadImages(FILE *file, bool includeAlpha) {
@@ -174,7 +174,7 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 		}
 		int bitmapId = image->workRecord->bitmap_id;
 		if (bitmapId >= 0 && bitmapId < bitmaps_n) {
-			bitmaps[bitmapId]->addImage(image);
+			add_sg_bitmap_image(bitmaps[bitmapId], image);
 			image->parent = bitmaps[bitmapId];
 		} else {
 			printf("Image %d has no parent: %d\n", i, bitmapId);

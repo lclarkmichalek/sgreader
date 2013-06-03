@@ -7,14 +7,14 @@
 #include <stdbool.h>
 
 QString findFilenameCaseInsensitive(QDir directory, QString filename);
-QString find555File(SgBitmap *bitmap);
+QString find555File(struct SgBitmap *bitmap);
 
-QString find555Filename(SgBitmap *bitmap) {
+QString find555Filename(struct SgBitmap *bitmap) {
 	QString filename = find555File(bitmap);
 	if (filename.isEmpty()) {
 		return QString();
 	}
-    
+
 	QFile *file = new QFile(filename);
 	if (!file->open(QIODevice::ReadOnly)) {
 		filename = QString();
@@ -24,16 +24,16 @@ QString find555Filename(SgBitmap *bitmap) {
 }
 
 QString find555File(SgBitmap *bitmap) {
-	QFileInfo fileinfo(bitmap->getFilename());
-	bool isExtern = bitmap->isExtern();
+	QFileInfo fileinfo(bitmap->sgFilename);
+	bool isExtern = is_sg_bitmap_extern(bitmap);
 	
 	// Fetch basename of the file
 	// either the same name as sg(2|3) or from file record
 	QString basename;
 	if (isExtern) {
-		basename = QString(bitmap->getFilename());
+		basename = QString(bitmap->sgFilename);
 	} else {
-		QFileInfo fileinfo(bitmap->getFilename());
+		QFileInfo fileinfo(bitmap->sgFilename);
 		basename = fileinfo.fileName();
 	}
 	

@@ -77,9 +77,9 @@ void ExtractThread::extractFile(const QString &filename) {
 	for (; i < bitmaps; i++) {
 		SgBitmap *bitmap = sg.getBitmap(i);
 		if (bitmaps != 1) {
-			bmpName = bitmap->bitmapName();
+			bmpName = QString(bitmap->record->filename).remove(".bmp", Qt::CaseInsensitive);
 		}
-		int images = bitmap->imageCount();
+		int images = bitmap->images_n;
 
                 QString filename = find555Filename(bitmap);
 		
@@ -87,7 +87,7 @@ void ExtractThread::extractFile(const QString &filename) {
 			emit progressChanged(++total);
 			
 			struct SgImageData *sgData = 
-                            get_sg_image_data(bitmap->image(n), filename.toStdString().c_str());
+                            get_sg_image_data(bitmap->images[n], filename.toStdString().c_str());
                         QImage img((uchar*)(sgData->data),
                                    sgData->width, sgData->height,
                                    QImage::Format_ARGB32);
@@ -104,13 +104,13 @@ void ExtractThread::extractFile(const QString &filename) {
 					error = QString("File '%0', image %1: %2")
 						.arg(basename)
 						.arg(n + 1)
-						.arg(bitmap->image(n)->error);
+						.arg(bitmap->images[n]->error);
 				} else {
 					error = QString("File '%0', section '%1', image %2: %3")
 						.arg(basename)
-						.arg(bitmap->bitmapName())
+						.arg(bmpName)
 						.arg(n + 1)
-						.arg(bitmap->image(n)->error);
+						.arg(bitmap->images[n]->error);
 				}
 				errorMessages.append(error);
 				errorImages++;
