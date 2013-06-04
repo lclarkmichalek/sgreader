@@ -87,7 +87,7 @@ void ExtractThread::extractFile(const QString &filename) {
 			emit progressChanged(++total);
 			
 			struct SgImageData *sgData = 
-                            get_sg_image_data(bitmap->images[n], filename.toStdString().c_str());
+                            sg_load_image_data(bitmap->images[n], filename.toStdString().c_str());
                         QImage img((uchar*)(sgData->data),
                                    sgData->width, sgData->height,
                                    QImage::Format_ARGB32);
@@ -99,23 +99,25 @@ void ExtractThread::extractFile(const QString &filename) {
 				img.save(outputDir.filePath(pngfile));
 				extracted++;
 			} else {
+				char *raw = sg_get_image_error(bitmap->images[n]);
 				QString error;
 				if (bitmaps == 1) {
 					error = QString("File '%0', image %1: %2")
 						.arg(basename)
 						.arg(n + 1)
-						.arg(bitmap->images[n]->error);
+						.arg(raw);
 				} else {
 					error = QString("File '%0', section '%1', image %2: %3")
 						.arg(basename)
 						.arg(bmpName)
 						.arg(n + 1)
-						.arg(bitmap->images[n]->error);
+						.arg(raw);
 				}
+				free(raw);
 				errorMessages.append(error);
 				errorImages++;
 			}
-                        delete_sg_image_data(sgData);
+                        sg_delete_image_data(sgData);
 			
 			if (doCancel) return;
 		}

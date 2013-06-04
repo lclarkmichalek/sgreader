@@ -4,9 +4,26 @@
 #include <stdio.h>
 
 #include "./sgimage.h"
+#include "./sgbitmap.h"
 
-class SgBitmap;
-class SgHeader; // = header
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct SgHeader {
+	uint32_t sg_filesize;
+	uint32_t version;
+	uint32_t unknown1;
+	int32_t max_image_records;
+	int32_t num_image_records;
+	int32_t num_bitmap_records;
+	int32_t num_bitmap_records_without_system; /* ? */
+	uint32_t total_filesize;
+	uint32_t filesize_555;
+	uint32_t filesize_external;
+};
+
+struct SgHeader *read_sg_header(FILE *file);
 
 class SgFile {
 	public:
@@ -35,5 +52,9 @@ class SgFile {
 		char* filename;
 		SgHeader *header;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SGFILE_H */

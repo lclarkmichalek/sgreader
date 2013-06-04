@@ -20,7 +20,6 @@ struct SgBitmapRecord {
 	/* 12b, 3x int: if any is non-zero: internal image */
 	/* 24 more misc bytes, most zero */
 };
-struct SgImage;
 
 struct SgBitmap {
 	struct SgImage **images;

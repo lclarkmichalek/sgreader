@@ -34,8 +34,8 @@ SOURCES += aboutdialog.cpp \
            mainwindow.cpp \
            sgbitmap.cpp \
            sgfile.cpp \
-           sgimage.cpp \
-           utils.cpp \
+           sgimage.c \
+           utils.c \
            find555.cpp \
            gui/filelistpage.cpp \
            gui/inputdirpage.cpp \

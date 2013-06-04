@@ -64,5 +64,5 @@ bool is_sg_bitmap_extern(struct SgBitmap *bmp) {
     if (bmp->images_n == 0) {
         return false;
     }
-    return is_sg_image_extern(bmp->images[0]);
+    return sg_get_image_extern(bmp->images[0]);
 }

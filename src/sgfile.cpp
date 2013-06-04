@@ -11,33 +11,21 @@ enum {
 	SG_BITMAP_RECORD_SIZE = 200
 };
 
-class SgHeader {
-public:
-	SgHeader(FILE *f) {
-		readUInt32le(f, &sg_filesize);
-		readUInt32le(f, &version);
-		readUInt32le(f, &unknown1);
-		readInt32le(f, &max_image_records);
-		readInt32le(f, &num_image_records);
-		readInt32le(f, &num_bitmap_records);
-		readInt32le(f, &num_bitmap_records_without_system);
-		readUInt32le(f, &total_filesize);
-		readUInt32le(f, &filesize_555);
-		readUInt32le(f, &filesize_external);
-		fseek(f, SG_HEADER_SIZE, SEEK_SET);
-	}
-	
-	uint32_t sg_filesize;
-	uint32_t version;
-	uint32_t unknown1;
-	int32_t max_image_records;
-	int32_t num_image_records;
-	int32_t num_bitmap_records;
-	int32_t num_bitmap_records_without_system; /* ? */
-	uint32_t total_filesize;
-	uint32_t filesize_555;
-	uint32_t filesize_external;
-};
+struct SgHeader *sg_read_header(FILE *f) {
+	struct SgHeader *h = (struct SgHeader*)malloc(sizeof(struct SgHeader));
+	readUInt32le(f, &h->sg_filesize);
+	readUInt32le(f, &h->version);
+	readUInt32le(f, &h->unknown1);
+	readInt32le(f, &h->max_image_records);
+	readInt32le(f, &h->num_image_records);
+	readInt32le(f, &h->num_bitmap_records);
+	readInt32le(f, &h->num_bitmap_records_without_system);
+	readUInt32le(f, &h->total_filesize);
+	readUInt32le(f, &h->filesize_555);
+	readUInt32le(f, &h->filesize_external);
+	fseek(f, SG_HEADER_SIZE, SEEK_SET);
+	return h;
+}
 
 SgFile::SgFile(const char *filename)
 	: bitmaps(NULL), bitmaps_n(0),
@@ -49,16 +37,18 @@ SgFile::SgFile(const char *filename)
 
 SgFile::~SgFile() {
 	for (int i = 0; i < bitmaps_n; i++) {
-		delete bitmaps[i];
-		bitmaps[i] = 0;
+		delete_sg_bitmap(bitmaps[i]);
+		bitmaps[i] = NULL;
 	}
 	free(bitmaps);
 	for (int i = 0; i < images_n; i++) {
-		delete images[i];
-		images[i] = 0;
+		sg_delete_image(images[i]);
+		images[i] = NULL;
 	}
 	free(images);
 	free(filename);
+	if (header != NULL)
+		free(header);
 }
 
 int SgFile::bitmapCount() const {
@@ -109,7 +99,7 @@ bool SgFile::load() {
 		return false;
 	}
 
-	header = new SgHeader(file);
+	header = sg_read_header(file);
 	
 	if (!checkVersion()) {
 		fclose(file);
@@ -164,18 +154,18 @@ void SgFile::loadImages(FILE *file, bool includeAlpha) {
 	images = (SgImage**)(malloc(sizeof(SgImage*) * images_n));
 
 	// The first one is a dummy/null record
-	read_sg_image(0, file, includeAlpha);
+	sg_read_image(0, file, includeAlpha);
 	
 	for (int i = 0; i < header->num_image_records; i++) {
-		struct SgImage *image = read_sg_image(i + 1, file, includeAlpha);
-		int32_t invertOffset = image->workRecord->invert_offset;
+		struct SgImage *image = sg_read_image(i + 1, file, includeAlpha);
+		int32_t invertOffset = sg_get_image_invert_offset(image);
 		if (invertOffset < 0 && (i + invertOffset) >= 0) {
-			set_sg_image_invert(image, images[i + invertOffset]);
+			sg_set_image_invert(image, images[i + invertOffset]);
 		}
-		int bitmapId = image->workRecord->bitmap_id;
+		int bitmapId = sg_get_image_bitmapid(image);
 		if (bitmapId >= 0 && bitmapId < bitmaps_n) {
 			add_sg_bitmap_image(bitmaps[bitmapId], image);
-			image->parent = bitmaps[bitmapId];
+			sg_set_image_parent(image, bitmaps[bitmapId]);
 		} else {
 			printf("Image %d has no parent: %d\n", i, bitmapId);
 		}

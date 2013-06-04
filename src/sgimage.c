@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 enum {
 	ISOMETRIC_TILE_WIDTH = 58,
@@ -15,6 +16,33 @@ enum {
 	ISOMETRIC_LARGE_TILE_BYTES = 3200
 };
 
+struct SgImageRecord {
+    uint32_t offset;
+    uint32_t length;
+    uint32_t uncompressed_length;
+    /* 4 zero bytes: */
+    int32_t invert_offset;
+    int16_t width;
+    int16_t height;
+    /* 26 unknown bytes, mostly zero, first four are 2 shorts */
+    uint16_t type;
+    /* 4 flag/option-like bytes: */
+    char flags[4];
+    uint8_t bitmap_id;
+    /* 3 bytes + 4 zero bytes */
+    /* For D6 and up SG3 versions: alpha masks */
+    uint32_t alpha_offset;
+    uint32_t alpha_length;
+};
+
+struct SgImage {
+    struct SgImageRecord *record;
+    struct SgImageRecord *workRecord;
+    struct SgBitmap *parent;
+    char *error;
+    bool invert;
+    uint32_t imageId;
+};
 
 /* IO */
 uint8_t *fillBuffer(struct SgImage *img, FILE *file);
@@ -42,14 +70,14 @@ void setError(struct SgImage *img, const char *msg);
 void mirrorResult(struct SgImage *img, uint32_t *pixels);
 
 
-void delete_sg_image_data(struct SgImageData *data) {
+void sg_delete_image_data(struct SgImageData *data) {
 	if (data->data != NULL)
 		free(data->data);
 	if (data != NULL)
 		free(data);
 }
 
-struct SgImageRecord read_sg_image_record(FILE *f, bool includeAlpha) {
+struct SgImageRecord sg_read_image_record(FILE *f, bool includeAlpha) {
 	struct SgImageRecord rec;
 	readUInt32le(f, &rec.offset);
 	readUInt32le(f, &rec.length);
@@ -73,14 +101,14 @@ struct SgImageRecord read_sg_image_record(FILE *f, bool includeAlpha) {
 	return rec;
 }
 
-struct SgImage *read_sg_image(int id, FILE *file, bool includeAlpha) {
+struct SgImage *sg_read_image(int id, FILE *file, bool includeAlpha) {
 	struct SgImage *img = (struct SgImage*)malloc(sizeof(struct SgImage));
 	img->parent = NULL;
 	img->error = NULL;
 
 	img->imageId = id;
 	img->record = img->workRecord = (struct SgImageRecord*)malloc(sizeof(struct SgImageRecord));
-	*img->record = read_sg_image_record(file, includeAlpha);
+	*img->record = sg_read_image_record(file, includeAlpha);
 	if (img->record->invert_offset) {
 		img->invert = true;
 	} else {
@@ -89,7 +117,7 @@ struct SgImage *read_sg_image(int id, FILE *file, bool includeAlpha) {
 	return img;
 }
 
-void delete_sg_image(struct SgImage *img) {
+void sg_delete_image(struct SgImage *img) {
 	if (img->error != NULL)
 		free(img->error);
 	if (img->record)
@@ -98,8 +126,68 @@ void delete_sg_image(struct SgImage *img) {
 	free(img);
 }
 
-void set_sg_image_invert(struct SgImage *img, struct SgImage *invert) {
+uint32_t sg_get_image_offset(struct SgImage *img) {
+	return img->workRecord->offset;
+}
+
+uint32_t sg_get_image_length(struct SgImage *img) {
+	return img->workRecord->length;
+}
+
+uint32_t sg_get_image_uncompressed_length(struct SgImage *img) {
+	return img->workRecord->uncompressed_length;
+}
+
+uint32_t sg_get_image_invert_offset(struct SgImage *img) {
+	return img->workRecord->invert_offset;
+}
+
+uint16_t sg_get_image_width(struct SgImage *img) {
+	return img->workRecord->width;
+}
+
+uint16_t sg_get_image_height(struct SgImage *img) {
+	return img->workRecord->height;
+}
+
+uint16_t sg_get_image_type(struct SgImage *img) {
+	return img->workRecord->type;
+}
+
+bool sg_get_image_extern(struct SgImage *img) {
+	return img->workRecord->flags[0];
+}
+
+uint8_t sg_get_image_bitmapid(struct SgImage *img) {
+	return img->workRecord->bitmap_id;
+}
+
+uint32_t sg_get_image_alpha_offset(struct SgImage *img) {
+	return img->workRecord->alpha_offset;
+}
+
+uint32_t sg_get_image_alpha_length(struct SgImage *img) {
+	return img->workRecord->alpha_length;
+}
+
+uint32_t sg_get_image_id(struct SgImage *img) {
+	return img->imageId;
+}
+
+char *sg_get_image_error(struct SgImage *img) {
+	return strdup(img->error);
+}
+
+struct SgBitmap *sg_get_image_parent(struct SgImage *img) {
+	return img->parent;
+}
+
+void sg_set_image_invert(struct SgImage *img, struct SgImage *invert) {
 	img->workRecord = invert->record;
+}
+
+void sg_set_image_parent(struct SgImage *img, struct SgBitmap *parent) {
+	img->parent = parent;
 }
 
 void setError(struct SgImage *img, const char *message) {
@@ -109,11 +197,7 @@ void setError(struct SgImage *img, const char *message) {
 	img->error = strdup(message);
 }
 
-bool is_sg_image_extern(struct SgImage *img) {
-	return bool(img->workRecord->flags[0]);
-}
-
-struct SgImageData *get_sg_image_data(struct SgImage *img, const char *filename555) {
+struct SgImageData *sg_load_image_data(struct SgImage *img, const char *filename555) {
 	// START DEBUG ((
 	/*
 	if ((imageId >= 359 && imageId <= 368) || imageId == 459) {
@@ -236,8 +320,9 @@ void loadPlainImage(struct SgImage *img, uint32_t *pixels, const uint8_t *buffer
 	}
 	
 	int i = 0;
-	for (int y = 0; y < (int)img->workRecord->height; y++) {
-		for (int x = 0; x < (int)img->workRecord->width; x++, i+= 2) {
+        int x, y;
+	for (y = 0; y < (int)img->workRecord->height; y++) {
+		for (x = 0; x < (int)img->workRecord->width; x++, i+= 2) {
 			set555Pixel(img, pixels, x, y, buffer[i] | (buffer[i+1] << 8));
 		}
 	}
