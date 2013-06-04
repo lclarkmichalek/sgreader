@@ -122,7 +122,7 @@ void MainWindow::loadFile(const QString &filename) {
 		for (int b = 0; b < numBitmaps; b++) {
 			struct SgBitmap *bmp = sgFile->getBitmap(b);
 			QString description = QString("%0 %1")
-				.arg(bmp->record->filename)
+				.arg(sg_get_bitmap_filename(bmp))
 				.arg(b);
 			QTreeWidgetItem *bitmapItem =
 				new QTreeWidgetItem(treeWidget,

@@ -77,9 +77,9 @@ void ExtractThread::extractFile(const QString &filename) {
 	for (; i < bitmaps; i++) {
 		SgBitmap *bitmap = sg.getBitmap(i);
 		if (bitmaps != 1) {
-			bmpName = QString(bitmap->record->filename).remove(".bmp", Qt::CaseInsensitive);
+			bmpName = QString(sg_get_bitmap_filename(bitmap)).remove(".bmp", Qt::CaseInsensitive);
 		}
-		int images = bitmap->images_n;
+		int images = sg_get_bitmap_image_count(bitmap);
 
                 QString filename = find555Filename(bitmap);
 		
@@ -87,7 +87,8 @@ void ExtractThread::extractFile(const QString &filename) {
 			emit progressChanged(++total);
 			
 			struct SgImageData *sgData = 
-                            sg_load_image_data(bitmap->images[n], filename.toStdString().c_str());
+				sg_load_image_data(sg_get_bitmap_image(bitmap, n),
+						   filename.toStdString().c_str());
                         QImage img((uchar*)(sgData->data),
                                    sgData->width, sgData->height,
                                    QImage::Format_ARGB32);
@@ -99,7 +100,7 @@ void ExtractThread::extractFile(const QString &filename) {
 				img.save(outputDir.filePath(pngfile));
 				extracted++;
 			} else {
-				char *raw = sg_get_image_error(bitmap->images[n]);
+				char *raw = sg_get_image_error(sg_get_bitmap_image(bitmap, n));
 				QString error;
 				if (bitmaps == 1) {
 					error = QString("File '%0', image %1: %2")

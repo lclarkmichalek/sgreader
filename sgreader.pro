@@ -32,7 +32,7 @@ SOURCES += aboutdialog.cpp \
            licencedialog.cpp \
            main.cpp \
            mainwindow.cpp \
-           sgbitmap.cpp \
+           sgbitmap.c \
            sgfile.cpp \
            sgimage.c \
            utils.c \

@@ -24,16 +24,17 @@ QString find555Filename(struct SgBitmap *bitmap) {
 }
 
 QString find555File(SgBitmap *bitmap) {
-	QFileInfo fileinfo(bitmap->sgFilename);
-	bool isExtern = is_sg_bitmap_extern(bitmap);
+	QFileInfo fileinfo(sg_get_bitmap_sg_filename(bitmap));
+	SgImage *fst = sg_get_bitmap_image(bitmap, 0);
+	bool isExtern = fst ? sg_get_image_extern(fst) : false;
 	
 	// Fetch basename of the file
 	// either the same name as sg(2|3) or from file record
 	QString basename;
 	if (isExtern) {
-		basename = QString(bitmap->sgFilename);
+		basename = QString(sg_get_bitmap_sg_filename(bitmap));
 	} else {
-		QFileInfo fileinfo(bitmap->sgFilename);
+		QFileInfo fileinfo(sg_get_bitmap_sg_filename(bitmap));
 		basename = fileinfo.fileName();
 	}
 	
