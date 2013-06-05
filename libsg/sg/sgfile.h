@@ -3,8 +3,8 @@
 
 #include <stdio.h>
 
-#include "./sgimage.h"
-#include "./sgbitmap.h"
+#include <sg/sgimage.h>
+#include <sg/sgbitmap.h>
 
 #ifdef __cplusplus
 extern "C" {

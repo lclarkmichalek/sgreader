@@ -1,5 +1,6 @@
-VPATH += ./src
+VPATH += ./src ./libsg/src ./libsg/sg
 
+INCLUDEPATH += ./libsg
 TEMPLATE = app
 TARGET = 
 DEPENDPATH += . gui
@@ -16,11 +17,11 @@ HEADERS += aboutdialog.h \
            imagetreeitem.h \
            licencedialog.h \
            mainwindow.h \
+           find555.h \
            sgbitmap.h \
            sgfile.h \
            sgimage.h \
            utils.h \
-           find555.h \
            gui/filelistpage.h \
            gui/inputdirpage.h \
            gui/outputdirpage.h \
@@ -32,11 +33,11 @@ SOURCES += aboutdialog.cpp \
            licencedialog.cpp \
            main.cpp \
            mainwindow.cpp \
+           find555.cpp \
            sgbitmap.c \
            sgfile.c \
            sgimage.c \
            utils.c \
-           find555.cpp \
            gui/filelistpage.cpp \
            gui/inputdirpage.cpp \
            gui/outputdirpage.cpp \

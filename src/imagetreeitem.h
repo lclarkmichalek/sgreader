@@ -1,7 +1,7 @@
 #ifndef IMAGETREEITEM_H
 #define IMAGETREEITEM_H
 
-#include "sgimage.h"
+#include <sg/sgimage.h>
 
 #include <QTreeWidgetItem>
 #include <QString>

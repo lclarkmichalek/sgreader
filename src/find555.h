@@ -1,7 +1,7 @@
 #ifndef SGREADER_FIND555
 #define SGREADER_FIND555
 
-#include "./sgbitmap.h"
+#include <sg/sgbitmap.h>
 
 #include <QString>
 

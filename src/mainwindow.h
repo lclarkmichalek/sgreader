@@ -4,8 +4,8 @@
 #include <QMainWindow>
 #include <QtGui> // TODO: specify
 
-#include "sgfile.h"
-#include "sgimage.h"
+#include <sg/sgfile.h>
+#include <sg/sgimage.h>
 
 class QAction;
 

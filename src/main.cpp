@@ -1,4 +1,4 @@
-#include "sgfile.h"
+#include <sg/sgfile.h>
 #include "mainwindow.h"
 #include <QApplication>
 

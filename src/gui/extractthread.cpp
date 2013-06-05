@@ -1,8 +1,9 @@
 #include "extractthread.h"
 
-#include "../sgfile.h"
-#include "../sgbitmap.h"
-#include "../sgimage.h"
+#include <sg/sgfile.h>
+#include <sg/sgbitmap.h>
+#include <sg/sgimage.h>
+
 #include "../find555.h"
 
 #include <QDebug>

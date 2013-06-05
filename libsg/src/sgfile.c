@@ -1,6 +1,6 @@
-#include "sgfile.h"
-#include "sgimage.h"
-#include "utils.h"
+#include <sg/sgfile.h>
+#include <sg/sgimage.h>
+#include <sg/utils.h>
 
 #include <string.h>
 #include <stdlib.h>
