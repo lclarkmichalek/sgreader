@@ -10,48 +10,23 @@
 extern "C" {
 #endif
 
-struct SgHeader {
-	uint32_t sg_filesize;
-	uint32_t version;
-	uint32_t unknown1;
-	int32_t max_image_records;
-	int32_t num_image_records;
-	int32_t num_bitmap_records;
-	int32_t num_bitmap_records_without_system; /* ? */
-	uint32_t total_filesize;
-	uint32_t filesize_555;
-	uint32_t filesize_external;
-};
+struct SgFile;
 
-struct SgHeader *read_sg_header(FILE *file);
+struct SgFile *sg_read_file(const char *filename);
+void sg_delete_file(struct SgFile *file);
 
-class SgFile {
-	public:
-		SgFile(const char* filename);
-		~SgFile();
-		bool load();
-		int bitmapCount() const;
-		int totalImageCount() const;
-		int imageCount(int bitmapId) const;
-		
-		SgBitmap *getBitmap(int bitmapId) const;
-		
-		SgImage *image(int bitmapId, int imageId) const;
-		SgImage *image(int globalImageId) const;
-		
-	private:
-		bool checkVersion();
-		int maxBitmapRecords() const;
-		void loadBitmaps(FILE *stream);
-		void loadImages(FILE *stream, bool includeAlpha);
-		
-		SgBitmap **bitmaps;
-		int bitmaps_n;
-		SgImage **images;
-		int images_n;
-		char* filename;
-		SgHeader *header;
-};
+uint32_t sg_get_file_version(struct SgFile *file);
+uint32_t sg_get_file_total_filesize(struct SgFile *file);
+uint32_t sg_get_file_555_filesize(struct SgFile *file);
+uint32_t sg_get_file_external_filesize(struct SgFile *file);
+
+int sg_get_file_bitmap_count(struct SgFile *file);
+void sg_add_file_bitmap(struct SgFile *file, struct SgBitmap *bmp);
+struct SgBitmap *sg_get_file_bitmap(struct SgFile *file, int i);
+
+int sg_get_file_image_count(struct SgFile *file);
+void sg_add_file_image(struct SgFile *file, struct SgImage *bmp);
+struct SgImage *sg_get_file_image(struct SgFile *file, int i);
 
 #ifdef __cplusplus
 }

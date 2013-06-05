@@ -33,7 +33,7 @@ SOURCES += aboutdialog.cpp \
            main.cpp \
            mainwindow.cpp \
            sgbitmap.c \
-           sgfile.cpp \
+           sgfile.c \
            sgimage.c \
            utils.c \
            find555.cpp \

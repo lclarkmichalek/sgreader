@@ -51,23 +51,22 @@ void ExtractThread::run() {
 }
 
 void ExtractThread::extractFile(const QString &filename) {
-	SgFile sg(filename.toStdString().c_str());
+	struct SgFile *sg = sg_read_file(filename.toStdString().c_str());
 	int numImages, bitmaps, i = 0;
 	
 	qDebug() << "Extracting file" << filename;
 	
-	sg.load();
 	QFileInfo fi(filename);
 	QString basename = fi.baseName();
 	outputDir.mkdir(basename);
 	outputDir.cd(basename);
 	
-	bitmaps = sg.bitmapCount();
-	numImages = sg.totalImageCount();
+	bitmaps = sg_get_file_bitmap_count(sg);
+	numImages = sg_get_file_image_count(sg);
 	qDebug("Bitmaps: %d", bitmaps);
 	
 	if (!extractSystem && bitmaps > 1) {
-		numImages -= sg.imageCount(0);
+		numImages -= sg_get_bitmap_image_count(sg_get_file_bitmap(sg, 0));
 		i++;
 	}
 	emit fileChanged(basename, numImages);
@@ -75,7 +74,7 @@ void ExtractThread::extractFile(const QString &filename) {
 	
 	int total = 0;
 	for (; i < bitmaps; i++) {
-		SgBitmap *bitmap = sg.getBitmap(i);
+		SgBitmap *bitmap = sg_get_file_bitmap(sg, i);
 		if (bitmaps != 1) {
 			bmpName = QString(sg_get_bitmap_filename(bitmap)).remove(".bmp", Qt::CaseInsensitive);
 		}

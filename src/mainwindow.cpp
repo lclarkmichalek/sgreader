@@ -95,8 +95,8 @@ void MainWindow::loadFile(const QString &filename) {
 	treeWidget->setHeaderLabel("No file loaded");
 	clearImage();
 	
-	sgFile = new SgFile(filename.toStdString().c_str());
-	if (!sgFile->load()) {
+	struct SgFile *sgFile = sg_read_file(filename.toStdString().c_str());
+	if (!sgFile) {
 		setWindowTitle(appname);
 		return;
 	}
@@ -108,19 +108,18 @@ void MainWindow::loadFile(const QString &filename) {
 	
 	treeWidget->setHeaderLabel(fi.fileName());
 	
-	if (sgFile->bitmapCount() == 1 ||
-			sgFile->imageCount(0) == sgFile->totalImageCount()) {
+	if (sg_get_file_bitmap_count(sgFile) == 1) {
 		// Just have a long list of images
-		int numImages = sgFile->totalImageCount();
+		int numImages = sg_get_file_image_count(sgFile);
 		for (int i = 0; i < numImages; i++) {
 			new ImageTreeItem(treeWidget, i,
-					sgFile->image(i));
+					  sg_get_file_image(sgFile, i));
 		}
 	} else {
 		// Split up by file
-		int numBitmaps = sgFile->bitmapCount();
+		int numBitmaps = sg_get_file_bitmap_count(sgFile);
 		for (int b = 0; b < numBitmaps; b++) {
-			struct SgBitmap *bmp = sgFile->getBitmap(b);
+			struct SgBitmap *bmp = sg_get_file_bitmap(sgFile, b);
 			QString description = QString("%0 %1")
 				.arg(sg_get_bitmap_filename(bmp))
 				.arg(b);
@@ -128,9 +127,13 @@ void MainWindow::loadFile(const QString &filename) {
 				new QTreeWidgetItem(treeWidget,
 						    QStringList(description));
 			
-			int numImages = sgFile->imageCount(b);
+			int numImages = sg_get_bitmap_image_count(bmp);
 			for (int i = 0; i < numImages; i++) {
-				new ImageTreeItem(bitmapItem, i, sgFile->image(b, i));
+				new ImageTreeItem(
+					bitmapItem, i, 
+					sg_get_bitmap_image(
+						sg_get_file_bitmap(sgFile, b),
+						i));
 			}
 		}
 	}

@@ -29,7 +29,7 @@ class MainWindow : public QMainWindow {
 	private:
 		void createChildren();
 		void createMenu();
-		void createActions();
+                void createActions();
 		
 		void loadFile(const QString &filename);
 		void loadImage(SgImage *image);
