@@ -8,6 +8,7 @@ INCLUDEPATH += . gui
 OBJECTS_DIR = build/obj
 MOC_DIR = build/moc
 RCC_DIR = build/rcc
+LIBS += -lsg
 
 CONFIG += debug
 
@@ -18,10 +19,6 @@ HEADERS += aboutdialog.h \
            licencedialog.h \
            mainwindow.h \
            find555.h \
-           sgbitmap.h \
-           sgfile.h \
-           sgimage.h \
-           utils.h \
            gui/filelistpage.h \
            gui/inputdirpage.h \
            gui/outputdirpage.h \
@@ -34,10 +31,6 @@ SOURCES += aboutdialog.cpp \
            main.cpp \
            mainwindow.cpp \
            find555.cpp \
-           sgbitmap.c \
-           sgfile.c \
-           sgimage.c \
-           utils.c \
            gui/filelistpage.cpp \
            gui/inputdirpage.cpp \
            gui/outputdirpage.cpp \

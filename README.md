@@ -30,6 +30,17 @@ LibSG
 =====
 
 I've separated out the core SG/555 reading, removed all QT dependencies and
-ported it to pure C. If you want to use it, just copy it from the libsg
-directory. If anyone actually knows how to write a decent makefile to support
-installing/building it as a shared/static library, please contribute.
+ported it to pure C. I've moved it to a separate repository
+(github.com/bluepeppers/libsg), and to build on the libsg branch of sgreader,
+you need to install it first. This makes the entire process:
+
+    git clone git://github.com/bluepeppers/libsg.git
+    cd libsg/c
+    make
+    sudo make install
+
+    # Now go to sgreader dir
+    git checkout libsg
+    qmake
+    make
+    ./sgreader
