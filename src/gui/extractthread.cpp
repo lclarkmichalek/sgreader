@@ -100,7 +100,7 @@ void ExtractThread::extractFile(const QString &filename) {
 				img.save(outputDir.filePath(pngfile));
 				extracted++;
 			} else {
-				char *raw = sg_get_image_error(sg_get_bitmap_image(bitmap, n));
+				const char *raw = sg_get_image_error(sg_get_bitmap_image(bitmap, n));
 				QString error;
 				if (bitmaps == 1) {
 					error = QString("File '%0', image %1: %2")
@@ -114,7 +114,6 @@ void ExtractThread::extractFile(const QString &filename) {
 						.arg(n + 1)
 						.arg(raw);
 				}
-				free(raw);
 				errorMessages.append(error);
 				errorImages++;
 			}

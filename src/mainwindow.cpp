@@ -153,10 +153,9 @@ void MainWindow::loadImage(SgImage *img) {
 		       imageData->width, imageData->height,
 		       QImage::Format_ARGB32);
 	if (image.isNull()) {
-		char *err = sg_get_image_error(img);
+		const char *err = sg_get_image_error(img);
 		imageLabel->setText(QString("Couldn't load image: %0")
                                     .arg(err));
-		free(err);
 		saveAction->setEnabled(false);
 	} else {
 		imageLabel->setPixmap(QPixmap::fromImage(image));
